@@ -2,27 +2,29 @@
 
 ## grundsätzlich
 
-Bestehendes System verstehen. (angefangen mit wie kommt Strom traditionell (Sinnhaftigkeit der Blockchain?)
++Bestehendes System verstehen. (angefangen mit wie kommt Strom traditionell (Sinnhaftigkeit der Blockchain?)
 
-Gibt es schon Blockchainanwendungen in diesem Bereich. => [falls nicht] Warum gibts keine? Woran sind andere gescheitert?
++Gibt es schon Blockchainanwendungen in diesem Bereich. => [falls nicht] Warum gibts keine? Woran sind andere gescheitert?
 
-Was ist unser Ziel? (Was für grundsätzliche Annahmen sollen wir treffen?)
++Was ist unser Ziel? (Was für grundsätzliche Annahmen sollen wir treffen?)
 
-Wie kommen wir dahin? (Aufgabenteilung) 
++Wie kommen wir dahin? (Aufgabenteilung) 
 
-.
-.
-.
++.
+
++.
+
++.
 
 ## technisch
 
-Skalierung testen => Entscheidung treffen ob matching auf oder abseits der chain => [falls externes matching] wie "trustless" externe Institutionen einbeziehen (Sinnhaftigkeit der Blockchain?)
++Skalierung testen => Entscheidung treffen ob matching auf oder abseits der chain => [falls externes matching] wie "trustless" externe Institutionen einbeziehen (Sinnhaftigkeit der Blockchain?)
 
-Zentrale Börse implementieren als Richtwert für unsere Blockchain Börse
++Zentrale Börse implementieren als Richtwert für unsere Blockchain Börse
 
-Energiemarkt Anbindung  (trustless?!)
++Energiemarkt Anbindung  (trustless?!)
 
-Smart Meter Anbindung (technische & konzeptionelle Ebene) (trustless?!) 
++Smart Meter Anbindung (technische & konzeptionelle Ebene) (trustless?!) 
 
 
 
