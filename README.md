@@ -29,7 +29,6 @@
 
 
 
-
 # Links
 
 
@@ -48,3 +47,25 @@ https://media.readthedocs.org/pdf/solidity/latest/solidity.pdf
 https://github.com/IISM-Ethereum/Guide
 
 https://github.com/IISM-Ethereum/Miner
+
+
+
+## TransActive Grid (new york pilot projekt)
+
+http://transactivegrid.net/
+
+http://brooklynmicrogrid.com/
+
+## Grüner strom aus heidelberg
+
+Blockchain basierter Nachweis für den tatsächlichen Energiemix den man bezieht(ethereum projekt)
+(Verbrauch und Erzeugung werden lokal in Relation gesetzt damit man wirklich sicher ist auch unterm Strich den Strom seines Solarzellen-Nachbarns gekauft  hat) 
+
+https://stromstunde.de/ 
+
+hier ihre smart contracts: 
+https://github.com/zoernert/gsi
+
+(Die Jungs kommen aus Nähe Heidelberg ;-) ) 
+
+
