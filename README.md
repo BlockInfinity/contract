@@ -59,6 +59,7 @@ http://brooklynmicrogrid.com/
 ## Grüner strom aus heidelberg
 
 Blockchain basierter Nachweis für den tatsächlichen Energiemix den man bezieht(ethereum projekt)
+
 (Verbrauch und Erzeugung werden lokal in Relation gesetzt damit man wirklich sicher ist auch unterm Strich den Strom seines Solarzellen-Nachbarns gekauft  hat) 
 
 https://stromstunde.de/ 
