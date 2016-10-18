@@ -2,7 +2,7 @@
 
 ## grundsätzlich
 
-+ Bestehendes System verstehen. (angefangen mit wie kommt Strom traditionell (Sinnhaftigkeit der Blockchain?)
++ Bestehendes System verstehen. (Sinnhaftigkeit der Blockchain?)
 
 + Gibt es schon Blockchainanwendungen in diesem Bereich. => [falls nicht] Warum gibts keine? Woran sind andere gescheitert?
 
