@@ -1,0 +1,47 @@
+strict digraph {
+  test_add_market
+  push
+  Refresh
+  getMarketAddress [color=blue]
+  getAvailableBalance [color=blue]
+  getBidOrders [color=blue]
+  getAskOrders [color=blue]
+  test_getMarketNames [color=blue]
+  ytest_getMarket [color=blue]
+  add_market
+  deposit
+  check_trade
+  check_fees
+  buy
+  save_trade
+  trade
+  sell
+  min
+  remove_trade
+  test_orders
+  bytes32ToString [color=blue]
+  transfer
+  transferFrom
+  balanceOf [color=blue]
+  approve
+  Approval
+  allowance [color=blue]
+  Token
+  test_add_market -> push
+  test_add_market -> Refresh
+  getBidOrders -> push
+  getAskOrders -> push
+  test_getMarketNames -> push
+  add_market -> push
+  add_market -> Refresh
+  buy -> save_trade
+  buy -> trade
+  buy -> Refresh
+  sell -> trade
+  sell -> Refresh
+  test_orders -> test_add_market
+  test_orders -> sell
+  test_orders -> buy
+  approve -> Approval
+}
+
