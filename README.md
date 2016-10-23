@@ -1,4 +1,3 @@
-
 # Todo
 
 
@@ -22,7 +21,7 @@ if verbrauch != tatsächlicher verbrauch, emit best ask/bid orders
 logik muss aufgeteilt werden auf mehrere contracts da gas limit nicht ausreicht, da wir jedoch auf private chain sind, ist es vorerst  kein Problem und hat keine Eile.
 
 
-#Konzept:
+# Konzept:
 
 http://prezi.com/dk4hnl5ocrhe/?utm_campaign=share&utm_medium=copy&rc=ex0share
 
