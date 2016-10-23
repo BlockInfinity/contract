@@ -12,6 +12,8 @@ fügt einen public key in einen array ein. Der array beinhaltet alles registrier
 Matching Funktion ändern. Im Laufe des mathcings darf Geld nicht mehr direkt hin und her versandt werden, sondern muss lediglich weggesperrt werden
 
 ## function settleSellOrder(public key from user, data from user's smart meter, data of the matched orders)
+if einspeisung >= versprochen in order, transfer locked money to seller
+if einspeisung < versprochen in order, kauf Reststrom für best bid und überweise was übrig bleibt an seller
 if einspeisung != tatsächliche Einspeisung, emit best ask/bid orders
 
 ## function settleBuyOrder(public key from user, data from user's meter, data of the matched orders)
