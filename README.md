@@ -18,6 +18,7 @@ if einspeisung != tatsächliche Einspeisung, emit best ask/bid orders
 
 ## function settleBuyOrder(public key from user, data from user's meter, data of the matched orders)
 if verbrauch != tatsächlicher verbrauch, emit best ask/bid orders
+Um die bid orders dann automatisch zu emitieren, müssten die users geld als sicherheit hinterlegen. Wenn Sicherheit aufgebraucht und Strom weiterhin verbraucht wird, dann müsste contract durch ein event jmd beauftragen den Strom abzuschalten.
 
 ## gas limit
 logik muss aufgeteilt werden auf mehrere contracts da gas limit nicht ausreicht, da wir jedoch auf private chain sind, ist es vorerst  kein Problem und hat keine Eile.
