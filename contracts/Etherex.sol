@@ -50,17 +50,41 @@
         // ############################### test section ###################################################################################################
         //##################################################################################################################################################
 
+        address public CA; // Certificate Authority for smart meters  
 
-        function test_add_market(address addr, bytes32 name) {
-
-          markets.push(Market(next_market_id,name,addr,1,msg.sender,block.number,0,0));
-          balances[msg.sender][next_market_id].available = 5000000;
-
-
-          next_market_id +=1;
-          token = Token(addr);
-          Refresh(2);
+        function test_setCA(address addr){
+          if (addr != 0){
+          CA = addr;  
+          }
         }
+
+        address[] public smartmeters;
+        
+        function register_smartmeter(address sm){
+          if (msg.sender != CA) throw;
+          smartmeters.push(sm);
+        }
+
+        modifier onlySmartMeters(address sm){
+          bool notFound = true;
+          for (uint256 i = 0; i<smartmeters.length; i++){
+            if(smartmeters[i] == sm){
+              notFound = false;
+            }
+          }
+          if (notFound) throw;
+          _;
+        }
+
+
+
+         // #################################################################################################################################################
+        // ########################## END OF TEST SECTION ###############################################################################################
+        //##################################################################################################################################################
+
+
+
+
 
         function getMarketAddress(uint256 market_id) constant returns (address rv){
           return markets[next_market_id-1].addr;
@@ -106,7 +130,7 @@
         bytes32[] names;
 
 
-        function test_getMarketNames() constant returns (uint256[] rv1, bytes32[] rv2){
+        function getMarketNames() constant returns (uint256[] rv1, bytes32[] rv2){
 
              for (uint256 x=0;x < markets.length;x++){
                 ids.push(markets[x].id);
@@ -115,18 +139,7 @@
             return(ids,names);
         }
 
-        function ytest_getMarket(uint256 id)constant returns(uint256 rv1){
-            return(markets[id].id);
-        }
-
-
-
-
-        // ##################################################################################################################################################
-        // ###################### end of test section #######################################################################################################
-        // ##################################################################################################################################################
-        // end of test section
-
+  
 
         // id gelöscht ÄNDERUNG
         function add_market(address addr, bytes32 name) {
@@ -142,7 +155,8 @@
       // parameter direkt genommen ÄNDERUNG
       // warum der umweg über die transferFrom Funktion, warum nicht direkt.
     function deposit(uint256 amount,uint256 market_id) returns (uint256 rv){
-            token = Token(markets[market_id]); 
+        
+            token = Token(markets[market_id].addr); 
             if (token.transferFrom(msg.sender, this, amount)){
               uint256 balance = balances[msg.sender][market_id].available;
               balance = balance + amount;
@@ -433,16 +447,7 @@
 
     }
 
-    function test_orders() payable{    // beachte da ich hier kaufe und transaktionsgebühren bezahle stets value mitgeben
-           test_add_market(address(1234), "asdf");
-           sell(1,4,0);
 
-           sell(1,6,0);
-           buy(2,6,0);
-           sell(10,7,0);
-
-
-           }
     event Refresh(uint256 x);
 
 
@@ -459,4 +464,156 @@
   }
 
     }
+    
+      /*
+
+  Token Standard (without any additional functionality) Source: https://github.com/ethereum/EIPs/issues/20
+
+  */
+
+    contract Token {
+
+
+
+      address public token = this;
+
+
+
+      event Transfer(address indexed _from, address indexed _to, uint256 _value);
+
+      event Approval(address indexed _owner, address indexed _spender, uint256 _value);
+
+
+
+        function transfer(address _to, uint256 _value) returns (bool success) {
+
+            //Default assumes totalSupply can't be over max (2^256 - 1).
+
+            //If your token leaves out totalSupply and can issue more tokens as time goes on, you need to check if it doesn't wrap.
+
+            //Replace the if with this one instead.
+
+            //if (balances[msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
+
+            if (balances[msg.sender] >= _value && _value > 0) {
+
+                balances[msg.sender] -= _value;
+
+                balances[_to] += _value;
+
+                Transfer(msg.sender, _to, _value);
+
+                return true;
+
+            } else { return false; }
+
+        }
+
+
+
+        function transferFrom(address _from, address _to, uint256 _value) returns (bool success) {
+
+            //same as above. Replace this line with the following if you want to protect against wrapping uints.
+
+            //if (balances[_from] >= _value && allowed[_from][msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
+
+            if (balances[_from] >= _value && allowed[_from][msg.sender] >= _value && _value > 0) {
+
+                balances[_to] += _value;
+
+                balances[_from] -= _value;
+
+                allowed[_from][msg.sender] -= _value;
+
+                //Transfer(_from, _to, _value);
+
+                return true;
+
+            } else { return false; }
+
+        }
+
+
+
+        function balanceOf(address _owner) constant returns (uint256 balance) {
+
+            return balances[_owner];
+
+        }
+
+
+
+        function approve(address _spender, uint256 _value) returns (bool success) {
+
+            allowed[msg.sender][_spender] = _value;
+
+            Approval(msg.sender, _spender, _value);
+
+            return true;
+
+        }
+
+
+
+        function allowance(address _owner, address _spender) constant returns (uint256 remaining) {
+
+          return allowed[_owner][_spender];
+
+        }
+
+
+
+        mapping (address => uint256) public balances;
+
+        mapping (address => mapping (address => uint256)) public allowed;
+
+        uint256 public totalSupply;
+
+
+
+
+
+
+
+        /* Public variables of the token */
+
+
+
+        /*
+
+        NOTE:
+
+        The following variables are OPTIONAL vanities. One does not have to include them.
+
+        They allow one to customise the token contract & in no way influences the core functionality.
+
+        Some wallets/interfaces might not even bother to look at this information.
+
+        */
+
+        string public name;                   //fancy name: eg Simon Bucks
+
+        uint8 public decimals;                //How many decimals to show. ie. There could 1000 base units with 3 decimals. Meaning 0.980 SBX = 980 base units. It's like comparing 1 wei to 1 ether.
+
+        string public symbol;                 //An identifier: eg SBX
+
+        string public version = 'H0.1';       //human 0.1 standard. Just an arbitrary versioning scheme.
+
+
+
+        function Token() {
+
+            balances[msg.sender] = 100000;               // Give the creator all initial tokens
+
+            totalSupply = 100000;                        // Update total supply
+
+            name = "DSX_token";
+
+        }
+
+
+
+    }
+
+
 
