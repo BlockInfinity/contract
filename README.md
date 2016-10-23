@@ -1,8 +1,25 @@
 
 # Todo
 
+
+## function withdraw
 Es gibt noch keine withdraw Funktion. Sprich das Analog zur deposit Funktion fehlt! Nutzer sollten Ihr Geld auch wieder tum token contract schicken können ;-) 
 
+## function register_smartmeter
+Funktion darf nur vom account der Zertifizierungsstelle (Bundesnetzagentur) ausgeführt werden. 
+fügt einen public key in einen array ein. Der array beinhaltet alles registrierten smart meters. 
+
+## function trade 
+Matching Funktion ändern. Im Laufe des mathcings darf Geld nicht mehr direkt hin und her versandt werden, sondern muss lediglich weggesperrt werden
+
+## function settleSellOrder(public key from user, data from user's smart meter, data of the matched orders)
+if einspeisung != tatsächliche Einspeisung, emit best ask/bid orders
+
+## function settleBuyOrder(public key from user, data from user's meter, data of the matched orders)
+if verbrauch != tatsächlicher verbrauch, emit best ask/bid orders
+
+## gas limit
+logik muss aufgeteilt werden auf mehrere contracts da gas limit nicht ausreicht, da wir jedoch auf private chain sind, ist es vorerst  kein Problem und hat keine Eile.
 
 
 Konzept:
