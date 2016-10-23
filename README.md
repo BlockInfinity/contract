@@ -5,7 +5,9 @@ Es gibt noch keine withdraw Funktion. Sprich das Analog zur deposit Funktion feh
 
 
 
+Konzept:
 
+http://prezi.com/dk4hnl5ocrhe/?utm_campaign=share&utm_medium=copy&rc=ex0share
 
 
 # Links
