@@ -1,10 +1,18 @@
 pragma solidity ^0.4.2;
 
 import "Token.sol";
+/*
 
+Global TODOS:
+
+Modifiers for time dependant operations.
+Communication with smart meter.
+The order of the functions has to be determined.
+
+*/
 contract Etherex {
 
-    struct Trade {
+    struct Match {
       uint256 volume;
       uint256 price;
       Order ask;
@@ -15,42 +23,39 @@ contract Etherex {
     struct Order {
 
         address owner;
-        uint256 id;
-        uint256 nex;
         uint256 volume;
         uint256 price;
         //Ask or bid order
         OrderType typ;
-        bool notNull;
     }
     
 
-    mapping (uint256 => Order) idToOrder;
     mapping (address => address) userToSmartMeter;
     
-    Order rootAsk;
-    Order rootBid;
-    Trade [] trades;
+    Order bestAsk;
+    Order bestBid;
+    Match [] matches;
 
 
-    address[] public certificateAuthorities;
-    address[] public smartmeters;
-    address[] public users;
+    address public certificateAuthority;
+    mapping (address => bool) public smartmeterExists;
+
+    //Balance for consumed energy that was not bought through orders
+    //if the balance is below 0, then send event that turns of energy
+    mapping (address => uint256) public collateral;
 
 
     // modifiers
-
+    //msg.sender inside of modifier?
+    //TODO MVP
     modifier onlySmartMeters(address _sm){
       bool notFound = true;
-        for (uint256 i = 0; i<smartmeters.length; i++){
-              if(smartmeters[i] == _sm){
-                notFound = false;
-              }
-        }  
+        
         if (notFound) throw;
         _;
     }
 
+    //TODO MVP
     modifier onlyUsers(address _user){
       bool notFound = true;
         for (uint256 i = 0; i<users.length; i++){
@@ -62,6 +67,7 @@ contract Etherex {
         _;
     }
 
+    //TODO MVP
     modifier onlyCertificateAuthorities(address _ca){
       bool notFound = true;
         for (uint256 i = 0; i<certificateAuthorities.length; i++){
@@ -75,130 +81,61 @@ contract Etherex {
 
 
     // Register Functions
-    
+    //TODO MVP
     function register_smartmeter(address sm) onlyCertificateAuthorities(msg.sender){
       if (msg.sender != CA) throw;
       smartmeters.push(sm);
     }
 
-    function buy(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+
+    function submitBestBid(uint256 _volume) onlyUsers(msg.sender){
       
     }
 
-    function sell(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+    function submitBid(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+      
+    }
+
+    function submitAsk(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+
+    } 
+
+    function submitCompAsk(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
 
     } 
 
 
-    function settle(uint256 consumed) onlySmartMeters(msg.sender){
+    //TODO Magnus Has to be automatically called from the blockchain
+    //TODO time controlled
+    function matching() {
 
     }
 
 
-    
-    //Next function
-    function n(Order order) internal returns(Order){
-        return idToOrder[order.nex];
-    
+    function settle(uint256 _consumed, uint256 _timestamp) onlySmartMeters(msg.sender){
+
     }
-    
-    function bind(Order prev, Order order, Order nex) internal {
-        prev.nex = order.id;
-        order.nex = nex.id;
-    }  
-    
-    function addBidOrder(Order order) internal{
-        
-        Order memory iter = rootAsk;
-        Order memory prev;
-        uint256 boughtVolume = 0;
-        //Scan through asks to find passing, currently one bid can be satisfied with
-        //at most one ask from this algorithm
-        while(iter.notNull) {
-           
-           if(iter.price <= order.price && order.volume <= iter.volume) {
-              //TODO Create trade  
-              //Reduce ask volume by volume in trade
-              iter.volume -= order.volume;
-              //Return because bid is satisfied
-              return;
-           } else {
-                prev = iter;
-                iter = n(iter);
-           }
-           
-       }
-       //If the bid was not satisfied, add it to the bid list
-       iter = rootAsk;
-       prev = Order(0,0,0,0,0, OrderType.Bid, false);
-       while(iter.notNull) {
-           if(iter.price < order.price || iter.price == order.price && iter.volume < order.volume) {
-               break;
-           } else {
-               prev = iter;
-               iter = n(iter);
-           }
-       }
-       bind(prev, order, iter);
-        
-        
+
+    //TODO time controlled
+    function determineCompPrice() {
+
     }
-    
-    //Add and when possible match
-    function addAskOrder(Order order) internal returns (bool) {
-        Order memory iter = rootBid;
-        Order memory prev;
-        //Scan through bids
-        while(iter.notNull || order.volume != 0) {
-           
-           if(iter.price >= order.price && order.volume >= iter.volume) {
-              //TODO Create trade  
-              //Reduce by volume in trade
-              order.volume -= iter.volume;
-              
-           } else {
-                prev = iter;
-                iter = n(iter);
-           }
-           
-       }
-       //If there is something left, add it to the ask orders list
-        if(order.volume > 0) {
-           iter = rootAsk;
-           prev = Order(0,0,0,0,0, OrderType.Ask, false);
-           while(iter.notNull) {
-               if(iter.price < order.price || iter.price == order.price && iter.volume < order.volume) {
-                   break;
-               } else {
-                   prev = iter;
-                   iter = n(iter);
-               }
-           }
-           bind(prev, order, iter);
-        }
-    }
+
+
     
   
-    //Returns next after removed
-    function removeAskOrder(Order order) internal returns (Order){
-        
-        
+    function addOrder() internal{
+
     }
-    
-    //Returns next after removed
-    function removeBidOrder(Order order) internal returns (Order){
-        
-        
-    }
-    
- 
-    
+
+    function removeOrder() internal{
+
+    } 
 
     //Constructor
-  function Etherex(address _certificateAuthority) {
+  function Etherex(address[] _certificateAuthority) {
 
-    certificateAuthorities.push(_certificateAuthority);
-    //Initialize array ... is not needed
+    certificateAuthority = _certificateAuthority;
 
   }
   
