@@ -1,0 +1,745 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta  name="viewport" content="width=device-width, initial-scale=1" />
+<title></title>
+<meta  name="generator" content="Org-mode" />
+<meta  name="author" content="Alex" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  pre.src-sh:before    { content: 'sh'; }
+  pre.src-bash:before  { content: 'sh'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-R:before     { content: 'R'; }
+  pre.src-perl:before  { content: 'Perl'; }
+  pre.src-java:before  { content: 'Java'; }
+  pre.src-sql:before   { content: 'SQL'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  /*]]>*/-->
+</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2013 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#orgheadline14">1. </a>
+<ul>
+<li><a href="#orgheadline6">1.1. Overview</a>
+<ul>
+<li><a href="#orgheadline1">Period: t-2</a></li>
+<li><a href="#orgheadline2">Period: 1/3 of t-1</a></li>
+<li><a href="#orgheadline3">Period 2/3 of t-1</a></li>
+<li><a href="#orgheadline4">Period 3/3 of t-1</a></li>
+<li><a href="#orgheadline5">Period: t</a></li>
+</ul>
+</li>
+<li><a href="#orgheadline7">1.2. Information needed</a></li>
+<li><a href="#orgheadline10">1.3. Example Matching bid and ask</a>
+<ul>
+<li><a href="#orgheadline8">1.3.1. Demand Orders</a></li>
+<li><a href="#orgheadline9">1.3.2. Supply Orders</a></li>
+</ul>
+</li>
+<li><a href="#orgheadline13">1.4. Example Matching Price Only Reserve</a>
+<ul>
+<li><a href="#orgheadline11">1.4.1. Supply Price Only</a></li>
+<li><a href="#orgheadline12">1.4.2. Demand Price Only</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-orgheadline14" class="outline-2">
+<h2 id="orgheadline14"><span class="section-number-2">1</span> </h2>
+<div class="outline-text-2" id="text-1">
+</div><div id="outline-container-orgheadline6" class="outline-3">
+<h3 id="orgheadline6"><span class="section-number-3">1.1</span> Overview</h3>
+<div class="outline-text-3" id="text-1-1">
+<p>
+The general timetable is as follows:
+<img src="periods.png" alt="periods.png" />
+</p>
+
+<p>
+Ask and Bid Orders referring to period t can be sent till the end of period t-2.
+In the first third of period t-1 the matching of the ask and bid orders will be computed. In the second third of period t-1, the supplier can launch a bid for the "Price Only Reserve". The third third of period t-1 is used to calculate the price for the "price only reserve".
+It is also possible to give an order for period t+8 which should be calculated in period t+6. The variable which indicates in what period the order should be matched is called <i>match.period</i>. The latest possible <i>match.period</i> for period t is t-1 and the latest possible period to launch these orders for t is t-2.
+</p>
+</div>
+<div id="outline-container-orgheadline1" class="outline-4">
+<h4 id="orgheadline1"><span class="section-number-4"></span> Period: t-2</h4>
+<div class="outline-text-4" id="text-1-1-1">
+<p>
+Bid and ask orders are launched.
+</p>
+</div>
+</div>
+<div id="outline-container-orgheadline2" class="outline-4">
+<h4 id="orgheadline2"><span class="section-number-4"></span> Period: 1/3 of t-1</h4>
+<div class="outline-text-4" id="text-1-1-2">
+<p>
+The matching for the bid and ask orders 
+</p>
+<ol class="org-ol">
+<li>Start with period t. Ignore all bid and ask order from other periods</li>
+<li>Aggregate the sum of all bid and all ask orders for every price level</li>
+<li>Check for every price level, starting with the lowest, if the aggregated supply is bigger than the aggregated demand. If it is bigger, go to 3.</li>
+<li>Calculate the amount which suppliers need to deliver. E.g. that each supplier delivers just a certain percentage of their offer so that the sum of the supply is equal to the sum of demand. An other option would be that the supplier who demanded the matching price is only allowed to supply up to the amount needed and all suppliers lower than the matching price can supply everything.</li>
+<li>Go to 1. but ignore all bid and ask orders except period t = t+1.</li>
+</ol>
+</div>
+</div>
+<div id="outline-container-orgheadline3" class="outline-4">
+<h4 id="orgheadline3"><span class="section-number-4"></span> Period 2/3 of t-1</h4>
+<div class="outline-text-4" id="text-1-1-3">
+<p>
+Supplier launch ask order for the "Price Only Reserve" (We assume that the quantity on demand side is known)
+</p>
+</div>
+</div>
+<div id="outline-container-orgheadline4" class="outline-4">
+<h4 id="orgheadline4"><span class="section-number-4"></span> Period 3/3 of t-1</h4>
+<div class="outline-text-4" id="text-1-1-4">
+<p>
+The price for the "Price Only Reserve" is calculated
+</p>
+</div>
+</div>
+<div id="outline-container-orgheadline5" class="outline-4">
+<h4 id="orgheadline5"><span class="section-number-4"></span> Period: t</h4>
+<div class="outline-text-4" id="text-1-1-5">
+<p>
+The bought energy can be consumed. 
+Three cases:
+</p>
+<ol class="org-ol">
+<li>case: the total consumed amount of energy is higher than the bought amount.
+Consumer who consumer more than bought need to pay the price for the "Price Only Reserve"
+Consumer who consume less than</li>
+</ol>
+
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-left" />
+</colgroup>
+
+<colgroup>
+<col  class="org-left" />
+</colgroup>
+
+<colgroup>
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">the total consumed amount of energy is</th>
+<th scope="col" class="org-left">consumer who consume</th>
+<th scope="col" class="org-left">consumer who consume</th>
+</tr>
+
+<tr>
+<th scope="col" class="org-left">&#x2026;&#x2026;. than the bought amount.</th>
+<th scope="col" class="org-left">more than bought</th>
+<th scope="col" class="org-left">less than bought</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-left">higher</td>
+<td class="org-left">pay the "price Only Reserve" price</td>
+<td class="org-left">nothing</td>
+</tr>
+
+<tr>
+<td class="org-left">lower</td>
+<td class="org-left">pay the "price Only Reserve" price</td>
+<td class="org-left">punishment fee???</td>
+</tr>
+</tbody>
+</table>
+
+
+<p>
+The supplier who supplied less than negotiated in the "lower" case could get the punishment fee the consumer had to pay.
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgheadline7" class="outline-3">
+<h3 id="orgheadline7"><span class="section-number-3">1.2</span> Information needed</h3>
+<div class="outline-text-3" id="text-1-2">
+<ul class="org-ul">
+<li>Demand:</li>
+</ul>
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">Variable Name</th>
+<th scope="col" class="org-left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-left">d.id</td>
+<td class="org-left">Consumer (demand) ID. Could be the persons public keyword</td>
+</tr>
+
+<tr>
+<td class="org-left">period</td>
+<td class="org-left">Time period. Could be 15 min.</td>
+</tr>
+
+<tr>
+<td class="org-left">quantity</td>
+<td class="org-left">the quantity of requested or offered energy. Could be in KWh</td>
+</tr>
+
+<tr>
+<td class="org-left">price</td>
+<td class="org-left">Price per one quantity. Could be in Euro / KWh</td>
+</tr>
+
+<tr>
+<td class="org-left">max.price</td>
+<td class="org-left">maximal price the consumer is willing to pay</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+
+<div id="outline-container-orgheadline10" class="outline-3">
+<h3 id="orgheadline10"><span class="section-number-3">1.3</span> Example Matching bid and ask</h3>
+<div class="outline-text-3" id="text-1-3">
+</div><div id="outline-container-orgheadline8" class="outline-4">
+<h4 id="orgheadline8"><span class="section-number-4">1.3.1</span> Demand Orders</h4>
+<div class="outline-text-4" id="text-1-3-1">
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-right">d.id</th>
+<th scope="col" class="org-right">period</th>
+<th scope="col" class="org-right">quantity</th>
+<th scope="col" class="org-left">max.price</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">1</td>
+<td class="org-right">10</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">2</td>
+<td class="org-right">5</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">2</td>
+<td class="org-right">1</td>
+<td class="org-right">7</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">3</td>
+<td class="org-right">1</td>
+<td class="org-right">30</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">3</td>
+<td class="org-right">2</td>
+<td class="org-right">10</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">3</td>
+<td class="org-right">3</td>
+<td class="org-right">15</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">3</td>
+<td class="org-right">3</td>
+<td class="org-right">200</td>
+<td class="org-left">10</td>
+</tr>
+
+<tr>
+<td class="org-right">3</td>
+<td class="org-right">3</td>
+<td class="org-right">10</td>
+<td class="org-left">30</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<div id="outline-container-orgheadline9" class="outline-4">
+<h4 id="orgheadline9"><span class="section-number-4">1.3.2</span> Supply Orders</h4>
+<div class="outline-text-4" id="text-1-3-2">
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-right">s.id</th>
+<th scope="col" class="org-right">period</th>
+<th scope="col" class="org-right">quantity</th>
+<th scope="col" class="org-right">price</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">1</td>
+<td class="org-right">40</td>
+<td class="org-right">30</td>
+</tr>
+
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">1</td>
+<td class="org-right">30</td>
+<td class="org-right">24</td>
+</tr>
+
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">2</td>
+<td class="org-right">25</td>
+<td class="org-right">20</td>
+</tr>
+
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">3</td>
+<td class="org-right">50</td>
+<td class="org-right">30</td>
+</tr>
+
+<tr>
+<td class="org-right">2</td>
+<td class="org-right">1</td>
+<td class="org-right">45</td>
+<td class="org-right">23</td>
+</tr>
+</tbody>
+</table>
+
+
+<div class="org-src-container">
+
+<pre class="src src-R">demand &lt;- data.frame("d.id"=c(1,1,2,3,3,3,3,3),"period"=c(1,2,1,1,2,3,3,3),"quantity"=c(10,5,7,30,10,15,200,10),"max.price"=c(NA,NA, NA, NA,NA, NA, 10,30))
+supply &lt;- data.frame("s.id"=c(1,1,1,1,2), "period"=c(1,1,2,3,1), "quantity"=c(40,30,25,50,45), "price"=c(30,24,20,30,23))
+
+matchQuantity &lt;- function(demand, supply)
+{
+    if(sum(tapply(demand[is.na(demand$max.price),]$quantity, demand[is.na(demand$max.price),]$period, sum) &gt; tapply(supply$quantity, supply$period, sum))&gt;0)
+    {
+        print("Demand higher than supply")
+        return(FALSE)
+    }
+    for (i.period in sort(unique(demand$period)))
+    {
+        for (i.price in sort(unique(supply$price)))
+        {
+            if (sum(supply[supply$price&lt;=i.price &amp; supply$period==i.period ,3]) &gt;= sum(demand[demand$period==i.period &amp; (demand$max.price&gt;=i.price | is.na(demand$max.price)),3]))
+            {
+                print("=====================")
+                print(paste("period: t=",i.period, ", price: ", i.price, sep=""))
+                print("Supply: ")
+                print(supply[supply$price&lt;=i.price &amp; supply$period==i.period ,])
+                print("Demand: ")
+                print(demand[demand$period==i.period &amp; (demand$max.price&gt;=i.price | is.na(demand$max.price)),])
+
+                share &lt;- sum(demand[demand$period==i.period &amp; (demand$max.price&gt;=i.price | is.na(demand$max.price)),3])/ sum(supply[supply$price&lt;=i.price &amp; supply$period==i.period ,3])
+                print("Supply-Result:")
+                tmp &lt;- supply[supply$price&lt;=i.price &amp; supply$period==i.period ,]
+                result &lt;- data.frame("s.id"=tmp[,1], "period"=i.period, "quantity"=tmp[,3]* share, "price"=i.price )
+                print(result)
+                                        # It would be also possible to order them according to their price and the most expensive delivers less
+                break;   
+            }
+        }
+    }
+}
+
+matchQuantity(demand, supply)
+</pre>
+</div>
+
+<p>
+Results:
+</p>
+<div class="org-src-container">
+
+<pre class="src src-R">"====================="
+"period: t=1, price: 24"
+"Supply: "
+  s.id period quantity price
+2    1      1       30    24
+5    2      1       45    23
+"Demand: "
+  d.id period quantity max.price
+1    1      1       10        NA
+3    2      1        7        NA
+4    3      1       30        NA
+"Supply-Result:"
+  s.id period quantity price
+1    1      1     18.8    24
+2    2      1     28.2    24
+
+"====================="
+"period: t=2, price: 20"
+"Supply: "
+  s.id period quantity price
+3    1      2       25    20
+"Demand: "
+  d.id period quantity max.price
+2    1      2        5        NA
+5    3      2       10        NA
+"Supply-Result:"
+  s.id period quantity price
+1    1      2       15    20
+
+"====================="
+"period: t=3, price: 30"
+"Supply: "
+  s.id period quantity price
+4    1      3       50    30
+"Demand: "
+  d.id period quantity max.price
+6    3      3       15        NA
+8    3      3       10        30
+"Supply-Result:"
+  s.id period quantity price
+1    1      3       25    30
+</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+
+
+<div id="outline-container-orgheadline13" class="outline-3">
+<h3 id="orgheadline13"><span class="section-number-3">1.4</span> Example Matching Price Only Reserve</h3>
+<div class="outline-text-3" id="text-1-4">
+</div><div id="outline-container-orgheadline11" class="outline-4">
+<h4 id="orgheadline11"><span class="section-number-4">1.4.1</span> Supply Price Only</h4>
+<div class="outline-text-4" id="text-1-4-1">
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+</colgroup>
+<tbody>
+<tr>
+<td class="org-right">s.id</td>
+<td class="org-right">supply.reserve</td>
+<td class="org-right">reserve.price</td>
+<td class="org-right">period</td>
+</tr>
+
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">200</td>
+<td class="org-right">40</td>
+<td class="org-right">1</td>
+</tr>
+
+<tr>
+<td class="org-right">2</td>
+<td class="org-right">200</td>
+<td class="org-right">50</td>
+<td class="org-right">1</td>
+</tr>
+
+<tr>
+<td class="org-right">3</td>
+<td class="org-right">100</td>
+<td class="org-right">60</td>
+<td class="org-right">1</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<div id="outline-container-orgheadline12" class="outline-4">
+<h4 id="orgheadline12"><span class="section-number-4">1.4.2</span> Demand Price Only</h4>
+<div class="outline-text-4" id="text-1-4-2">
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-left" />
+</colgroup>
+<tbody>
+<tr>
+<td class="org-right">d.id</td>
+<td class="org-right">demand</td>
+<td class="org-right">.max</td>
+<td class="org-left">period</td>
+</tr>
+
+<tr>
+<td class="org-right">1</td>
+<td class="org-right">100</td>
+<td class="org-right">1</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">2</td>
+<td class="org-right">100</td>
+<td class="org-right">1</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-right">3</td>
+<td class="org-right">150</td>
+<td class="org-right">1</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+</tbody>
+</table>
+
+<div class="org-src-container">
+
+<pre class="src src-R">priceOnly.demand &lt;- data.frame("d.id"=c(1,2,3), "demand.max"=c(100,100,150), "period"=c(1,1,1))
+priceOnly.supply &lt;- data.frame("s.id"=c(1,2,3), "supply.reserve"=c(200,200,100), "reserve.price"=c(40,50,60), "period"=c(1,1,1))
+
+
+matchPriceOnly &lt;- function(priceOnly.demand, priceOnly.supply){
+    for(i.period in sort(unique(priceOnly.demand$period)))
+    {
+        for (i.price in sort(unique(priceOnly.supply$reserve.price)))
+        {
+            if (sum(priceOnly.supply[priceOnly.supply$reserve.price&lt;=i.price &amp; priceOnly.supply$period==i.period ,2]) &gt;= sum(priceOnly.demand[priceOnly.demand$period==i.period,2]))
+            {
+                print(paste("period: t=",i.period, ", price: ", i.price, sep=""))
+                print("Supplier: ")
+                print(priceOnly.supply[priceOnly.supply$reserve.price&lt;=i.price &amp; priceOnly.supply$period==i.period ,])
+                print("Demand: ")
+                print(priceOnly.demand[priceOnly.demand$period==i.period,])
+                break;   
+            }
+        }
+    }
+}
+
+matchPriceOnly(priceOnly.demand, priceOnly.supply)
+</pre>
+</div>
+
+
+<p>
+Results:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-R">"period: t=1, price: 50"
+"Supplier: "
+  s.id supply.reserve reserve.price period
+1    1            200            40      1
+2    2            200            50      1
+"Demand: "
+  d.id demand.max period
+1    1        100      1
+2    2        100      1
+3    3        150      1
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+</div>
+</body>
+</html>
