@@ -1,149 +1,133 @@
 pragma solidity ^0.4.2;
 
 import "Token.sol";
+/*
 
+Global TODOS:
+
+Modifiers for time dependant operations.
+Communication with smart meter.
+The order of the functions has to be determined.
+
+*/
 contract Etherex {
 
-    struct Trade {
+    struct Match {
       uint256 volume;
       uint256 price;
       Order ask;
       Order bid;
     }
     
+    //state times in minutes
+    uint256[] stateTimes = [10, 10, 10 ,10];
+    uint8[] states = [0,1,2,3];
+    
+
     enum OrderType {Ask, Bid}
     struct Order {
-
         address owner;
-        uint256 id;
-        uint256 nex;
         uint256 volume;
         uint256 price;
         //Ask or bid order
         OrderType typ;
-        bool notNull;
     }
     
-
-    mapping (uint256 => Order) idToOrder;
+    uint8 public currState;
+    
     mapping (address => address) userToSmartMeter;
     
-    Order rootAsk;
-    Order rootBid;
-    Trade [] trades;
+    Order bestAsk;
+    Order bestBid;
+    Match [] matches;
 
 
-    address[] certificateAuthorities;
-    
-    
-    //Next function
-    function n(Order order) internal returns(Order){
-        return idToOrder[order.nex];
-    
+    mapping (address => bool) certificateAuthorities;
+    mapping (address => bool) public smartmeters;
+
+    //Balance for consumed energy that was not bought through orders
+    //if the balance is below 0, then send event that turns of energy
+    mapping (address => uint256) public collateral;
+
+
+    // modifiers
+    modifier onlySmartMeters(){
+        if (!smartmeters[msg.sender]) throw;
+        _;
+    }
+    modifier onlyUsers(){
+        if (userToSmartMeter[msg.sender] == 0) throw;
+        _;
+    }
+    modifier onlyCertificateAuthorities(){
+        if (!certificateAuthorities[msg.sender]) throw;
+        _;
     }
     
-    function bind(Order prev, Order order, Order nex) internal {
-        prev.nex = order.id;
-        order.nex = nex.id;
+    modifier onlyInState(uint8 state) {
+        if(state != currState) throw;
+        _;
     }
     
-    function addBidOrder(Order order) internal{
-        
-        Order memory iter = rootAsk;
-        Order memory prev;
-        uint256 boughtVolume = 0;
-        //Scan through asks to find passing, currently one bid can be satisfied with
-        //at most one ask from this algorithm
-        while(iter.notNull) {
-           
-           if(iter.price <= order.price && order.volume <= iter.volume) {
-              //TODO Create trade  
-              //Reduce ask volume by volume in trade
-              iter.volume -= order.volume;
-              //Return because bid is satisfied
-              return;
-           } else {
-                prev = iter;
-                iter = n(iter);
-           }
-           
-       }
-       //If the bid was not satisfied, add it to the bid list
-       iter = rootAsk;
-       prev = Order(0,0,0,0,0, OrderType.Bid, false);
-       while(iter.notNull) {
-           if(iter.price < order.price || iter.price == order.price && iter.volume < order.volume) {
-               break;
-           } else {
-               prev = iter;
-               iter = n(iter);
-           }
-       }
-       bind(prev, order, iter);
-        
-        
+    //TODO Function that has to update the state based on time
+    function updateState() internal {
+            
     }
     
-    //Add and when possible match
-    function addAskOrder(Order order) internal returns (bool) {
-        Order memory iter = rootBid;
-        Order memory prev;
-        //Scan through bids
-        while(iter.notNull || order.volume != 0) {
-           
-           if(iter.price >= order.price && order.volume >= iter.volume) {
-              //TODO Create trade  
-              //Reduce by volume in trade
-              order.volume -= iter.volume;
-              
-           } else {
-                prev = iter;
-                iter = n(iter);
-           }
-           
-       }
-       //If there is something left, add it to the ask orders list
-        if(order.volume > 0) {
-           iter = rootAsk;
-           prev = Order(0,0,0,0,0, OrderType.Ask, false);
-           while(iter.notNull) {
-               if(iter.price < order.price || iter.price == order.price && iter.volume < order.volume) {
-                   break;
-               } else {
-                   prev = iter;
-                   iter = n(iter);
-               }
-           }
-           bind(prev, order, iter);
-        }
+    // Register Functions
+    function registerSmartmeter(address sm) onlyCertificateAuthorities(){
+      smartmeters[sm] = true;
     }
+
+
+    function submitBestBid(uint256 _volume) onlyInState(0) onlyUsers(){
+      
+    }
+
+    function submitBid(uint256 _price, uint256 _amount) onlyInState(0) onlyUsers(){
+      
+    }
+
+    function submitAsk(uint256 _price, uint256 _amount) onlyInState(0) onlyUsers(){
+
+    } 
+
+    function submitCompAsk(uint256 _price, uint256 _amount) onlyInState(0) onlyUsers(){
+
+    } 
+
+
+    //TODO Magnus Has to be automatically called from the blockchain
+    function matching() onlyInState(1){
+
+    }
+
+    //TODO Magnus
+    function settle(uint256 _consumed, uint256 _timestamp) onlyInState(2) onlySmartMeters(){
+
+    }
+
+    //TODO Magnus time controlled
+    function determineCompPrice() {
+
+    }
+
+
     
   
-    //Returns next after removed
-    function removeAskOrder(Order order) internal returns (Order){
-        
-        
+    function addOrder() internal{
+
     }
-    
-    //Returns next after removed
-    function removeBidOrder(Order order) internal returns (Order){
-        
-        
-    }
-    
-    function buy(uint256 _price, uint256 _amount) {
-      
-     
-      
-    }
- 
-    
+
+    function removeOrder() internal{
+
+    } 
 
     //Constructor
   function Etherex(address _certificateAuthority) {
 
-    certificateAuthorities.push(_certificateAuthority);
-    //Initialize array?
+    certificateAuthorities[_certificateAuthority] = true;
+    
 
   }
   
