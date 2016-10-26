@@ -33,8 +33,68 @@ contract Etherex {
     Trade [] trades;
 
 
-    address[] certificateAuthorities;
+    address[] public certificateAuthorities;
+    address[] public smartmeters;
+    address[] public users;
+
+
+    // modifiers
+
+    modifier onlySmartMeters(address _sm){
+      bool notFound = true;
+        for (uint256 i = 0; i<smartmeters.length; i++){
+              if(smartmeters[i] == _sm){
+                notFound = false;
+              }
+        }  
+        if (notFound) throw;
+        _;
+    }
+
+    modifier onlyUsers(address _user){
+      bool notFound = true;
+        for (uint256 i = 0; i<users.length; i++){
+              if(users[i] == _user){
+                notFound = false;
+              }
+        }  
+        if (notFound) throw;
+        _;
+    }
+
+    modifier onlyCertificateAuthorities(address _ca){
+      bool notFound = true;
+        for (uint256 i = 0; i<certificateAuthorities.length; i++){
+              if(certificateAuthorities[i] == _ca){
+                notFound = false;
+              }
+        }  
+        if (notFound) throw;
+        _;
+    }
+
+
+    // Register Functions
     
+    function register_smartmeter(address sm) onlyCertificateAuthorities(msg.sender){
+      if (msg.sender != CA) throw;
+      smartmeters.push(sm);
+    }
+
+    function buy(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+      
+    }
+
+    function sell(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+
+    } 
+
+
+    function settle(uint256 consumed) onlySmartMeters(msg.sender){
+
+    }
+
+
     
     //Next function
     function n(Order order) internal returns(Order){
@@ -45,7 +105,7 @@ contract Etherex {
     function bind(Order prev, Order order, Order nex) internal {
         prev.nex = order.id;
         order.nex = nex.id;
-    }
+    }  
     
     function addBidOrder(Order order) internal{
         
@@ -131,11 +191,6 @@ contract Etherex {
         
     }
     
-    function buy(uint256 _price, uint256 _amount) {
-      
-     
-      
-    }
  
     
 
@@ -143,7 +198,7 @@ contract Etherex {
   function Etherex(address _certificateAuthority) {
 
     certificateAuthorities.push(_certificateAuthority);
-    //Initialize array?
+    //Initialize array ... is not needed
 
   }
   
