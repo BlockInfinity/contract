@@ -37,8 +37,8 @@ contract Etherex {
     Match [] matches;
 
 
-    address public certificateAuthority;
-    mapping (address => bool) public smartmeterExists;
+    mapping (address => bool) certificateAuthorities;
+    mapping (address => bool) public smartmeters;
 
     //Balance for consumed energy that was not bought through orders
     //if the balance is below 0, then send event that turns of energy
@@ -46,61 +46,39 @@ contract Etherex {
 
 
     // modifiers
-    //msg.sender inside of modifier?
-    //TODO MVP
-    modifier onlySmartMeters(address _sm){
-      bool notFound = true;
-        
-        if (notFound) throw;
+    modifier onlySmartMeters(){
+        if (!smartmeters[msg.sender]) throw;
         _;
     }
-
-    //TODO MVP
-    modifier onlyUsers(address _user){
-      bool notFound = true;
-        for (uint256 i = 0; i<users.length; i++){
-              if(users[i] == _user){
-                notFound = false;
-              }
-        }  
-        if (notFound) throw;
+    modifier onlyUsers(){
+        if (userToSmartMeter[msg.sender] == 0) throw;
         _;
     }
-
-    //TODO MVP
-    modifier onlyCertificateAuthorities(address _ca){
-      bool notFound = true;
-        for (uint256 i = 0; i<certificateAuthorities.length; i++){
-              if(certificateAuthorities[i] == _ca){
-                notFound = false;
-              }
-        }  
-        if (notFound) throw;
+    modifier onlyCertificateAuthorities(){
+        if (!certificateAuthorities[msg.sender]) throw;
         _;
     }
 
 
     // Register Functions
-    //TODO MVP
-    function register_smartmeter(address sm) onlyCertificateAuthorities(msg.sender){
-      if (msg.sender != CA) throw;
-      smartmeters.push(sm);
+    function register_smartmeter(address sm) onlyCertificateAuthorities(){
+      smartmeters[sm] = true;
     }
 
 
-    function submitBestBid(uint256 _volume) onlyUsers(msg.sender){
+    function submitBestBid(uint256 _volume) onlyUsers(){
       
     }
 
-    function submitBid(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+    function submitBid(uint256 _price, uint256 _amount) onlyUsers(){
       
     }
 
-    function submitAsk(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+    function submitAsk(uint256 _price, uint256 _amount) onlyUsers(){
 
     } 
 
-    function submitCompAsk(uint256 _price, uint256 _amount) onlyUsers(msg.sender){
+    function submitCompAsk(uint256 _price, uint256 _amount) onlyUsers(){
 
     } 
 
@@ -111,12 +89,12 @@ contract Etherex {
 
     }
 
-
-    function settle(uint256 _consumed, uint256 _timestamp) onlySmartMeters(msg.sender){
+    //TODO Magnus
+    function settle(uint256 _consumed, uint256 _timestamp) onlySmartMeters(){
 
     }
 
-    //TODO time controlled
+    //TODO Magnus time controlled
     function determineCompPrice() {
 
     }
@@ -133,9 +111,10 @@ contract Etherex {
     } 
 
     //Constructor
-  function Etherex(address[] _certificateAuthority) {
+  function Etherex(address _certificateAuthority) {
 
-    certificateAuthority = _certificateAuthority;
+    certificateAuthorities[_certificateAuthority] = true;
+    
 
   }
   
