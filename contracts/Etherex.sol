@@ -19,9 +19,13 @@ contract Etherex {
       Order bid;
     }
     
+    //state times in minutes
+    uint256[] stateTimes = [10, 10, 10 ,10];
+    uint8[] states = [0,1,2,3];
+    
+
     enum OrderType {Ask, Bid}
     struct Order {
-
         address owner;
         uint256 volume;
         uint256 price;
@@ -29,7 +33,8 @@ contract Etherex {
         OrderType typ;
     }
     
-
+    uint8 public currState;
+    
     mapping (address => address) userToSmartMeter;
     
     Order bestAsk;
@@ -58,39 +63,47 @@ contract Etherex {
         if (!certificateAuthorities[msg.sender]) throw;
         _;
     }
-
-
+    
+    modifier onlyInState(uint8 state) {
+        if(state != currState) throw;
+        _;
+    }
+    
+    //TODO Function that has to update the state based on time
+    function updateState() internal {
+            
+    }
+    
     // Register Functions
-    function register_smartmeter(address sm) onlyCertificateAuthorities(){
+    function registerSmartmeter(address sm) onlyCertificateAuthorities(){
       smartmeters[sm] = true;
     }
 
 
-    function submitBestBid(uint256 _volume) onlyUsers(){
+    function submitBestBid(uint256 _volume) onlyInState(0) onlyUsers(){
       
     }
 
-    function submitBid(uint256 _price, uint256 _amount) onlyUsers(){
+    function submitBid(uint256 _price, uint256 _amount) onlyInState(0) onlyUsers(){
       
     }
 
-    function submitAsk(uint256 _price, uint256 _amount) onlyUsers(){
+    function submitAsk(uint256 _price, uint256 _amount) onlyInState(0) onlyUsers(){
 
     } 
 
-    function submitCompAsk(uint256 _price, uint256 _amount) onlyUsers(){
+    function submitCompAsk(uint256 _price, uint256 _amount) onlyInState(0) onlyUsers(){
 
     } 
 
 
     //TODO Magnus Has to be automatically called from the blockchain
-    //TODO time controlled
-    function matching() {
+    function matching() onlyInState(1){
 
     }
 
     //TODO Magnus
-    function settle(uint256 _consumed, uint256 _timestamp) onlySmartMeters(){
+    function settle(uint256 _consumed, uint256 _timestamp) onlyInState(2) onlySmartMeters(){
 
     }
 
