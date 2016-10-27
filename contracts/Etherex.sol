@@ -23,8 +23,6 @@ contract Etherex {
     uint256[] stateTimes = [10, 10, 10 ,10];
     uint8[] states = [0,1,2,3];
     
-
-    enum OrderType {Ask, Bid}
     struct Order {
                 
         uint256 id;
@@ -184,7 +182,6 @@ contract Etherex {
         //Wouldnt it be fair that all of them go to the aftermarket
         //instead of only the last one? Round-robin too much?
         for(uint i = 0; i < flexBids.length; i++ ) {
-            //TODO Create matches
             if(currAsk.volume > flexBids[i].volume) {
                 matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner));
                 currAsk.volume -= flexBids[i].volume;
