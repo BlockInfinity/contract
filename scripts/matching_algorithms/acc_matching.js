@@ -25,7 +25,7 @@ function submitFlexBid(_volume, _sender) {
     bid.owner = _sender;
     this.flexBidVolume +=_volume;
     this.flexBids.push(bid);
-    console.log("Submitted flex bid volume(" + _volume + ") sender(" + _sender +")");
+    console.log("Submitted flex bid: " + JSON.stringify(bid));
 }
 
 function submitBid(_price, _volume, _sender) {
@@ -36,7 +36,7 @@ function submitBid(_price, _volume, _sender) {
     bid.price = _price;
     bid.owner = _sender;
 
-    console.log("Submitted bid: " + bid.id);
+    console.log("Submitted bid: " + JSON.stringify(bid));
 
     if(this.minBid.id == 0) {
         this.minBid = bid;
@@ -64,7 +64,7 @@ function submitAsk( _price, _volume, _sender) {
     ask.price = _price;
     ask.owner = _sender;
     
-    console.log("Submitted ask: " + ask.id);
+    console.log("Submitted ask: " + JSON.stringify(ask));
 
 
     if(this.minAsk.id == 0) {
