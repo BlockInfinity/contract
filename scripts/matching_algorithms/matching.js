@@ -55,4 +55,16 @@ for(var i = 0; i < NUM_TEST_FLEXBIDS; i++) {
 }
 
 
+//For benchmarking
+var start = Date.now();
+
 matching_alg.matching();
+var end = Date.now()  -start;
+console.log("################################################################################");
+console.log("Time: " + end + " milliseconds");
+delete matching_alg;
+delete asks;
+delete bids;
+delete flexBids;
+delete addressCounter;
+
