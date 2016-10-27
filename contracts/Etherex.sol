@@ -167,10 +167,11 @@ contract Etherex {
     //Currently without accumulating, does accumulating make sense?
     function matching() onlyInState(1){
         
-        Order prevBid;
-        Order prevAsk;
-        Order currBid = minBid;
-        Order currAsk = minAsk;
+        Order memory prevBid;
+        Order memory prevAsk;
+        Order memory currBid = minBid;
+        Order memory currAsk = minAsk;
+        uint tmp;
         
         //Solve flexible bids first
         uint256 askVolume = 0;
@@ -190,21 +191,42 @@ contract Etherex {
             }else if(currAsk.volume < flexBids[i].volume) {
                 matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
                 flexBids[i].volume -= currAsk.volume;
-                uint tmp = currAsk.nex;
+                tmp = currAsk.nex;
                 remove(prevAsk, currAsk);
                 currAsk = idToOrder[tmp]; 
                 i-=1;
             } else {
                 matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
-                uint tmp2 = currAsk.nex;
+                tmp = currAsk.nex;
                 remove(prevAsk, currAsk);
-                currAsk = idToOrder[tmp2]; 
+                currAsk = idToOrder[tmp]; 
             }
         }
+        //Matching of bids and asks with fixed price
         //Iterate till you come to the end of ask or bid lists
         while(currAsk.id != 0 && currBid.id != 0) {
-            //TODO create matches
+
+            //Round robin so that everyone gets something?
+            if(currAsk.volume > currBid.volume) {
+                matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner));
+                currAsk.volume -= currBid.volume;
+            }else if(currAsk.volume < currBid.volume) {
+                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner));
+                currBid.volume -= currAsk.volume;
+                tmp = currAsk.nex;
+                remove(prevAsk, currAsk);
+                currAsk = idToOrder[tmp]; 
+            } else {
+                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
+                tmp = currAsk.nex;
+                remove(prevAsk, currAsk);
+                currAsk = idToOrder[tmp]; 
+            }
+
+
         }
+
+        //What remains remains...
         
     }
 
