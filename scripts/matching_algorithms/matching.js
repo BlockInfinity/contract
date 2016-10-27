@@ -3,18 +3,6 @@
 
 var matching_alg = require('./acc_matching');
 
-matching_alg.submitBid(10, 20, 123445);
-matching_alg.submitAsk(10, 20, 123435);
-
-
-matching_alg.submitFlexBid(10, 20, 123)
-
-
-
-console.log("Printing flex bids: ");
-console.log(matching_alg.flexBids);
-
-
 NUM_TEST_BIDS = 1000;
 NUM_TEST_ASKS = 1000;
 NUM_TEST_FLEXBIDS = 1000;
@@ -59,9 +47,10 @@ for(var i = 0; i < NUM_TEST_FLEXBIDS; i++) {
 var start = Date.now();
 
 matching_alg.matching();
-var end = Date.now()  -start;
+var end = Date.now() -start;
 console.log("################################################################################");
 console.log("Time: " + end + " milliseconds");
+
 delete matching_alg;
 delete asks;
 delete bids;
