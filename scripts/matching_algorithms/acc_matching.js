@@ -18,6 +18,12 @@ function bind(prev, curr, next) {
     curr.nex = next;
 }
 
+function log(msg) {
+    if(this.log) {
+        log(msg)
+    }
+}
+
 //If this is called, just put it on the beginning on the list
 function submitFlexBid(_volume, _sender) {
     var bid = {};
@@ -25,7 +31,7 @@ function submitFlexBid(_volume, _sender) {
     bid.owner = _sender;
     this.flexBidVolume +=_volume;
     this.flexBids.push(bid);
-    console.log("Submitted flex bid: " + JSON.stringify(bid));
+    log("Submitted flex bid: " + JSON.stringify(bid));
 }
 
 function submitBid(_price, _volume, _sender) {
@@ -36,7 +42,7 @@ function submitBid(_price, _volume, _sender) {
     bid.price = _price;
     bid.owner = _sender;
 
-    console.log("Submitted bid: " + JSON.stringify(bid));
+    log("Submitted bid: " + JSON.stringify(bid));
 
     if(this.minBid.id == 0) {
         this.minBid = bid;
@@ -64,7 +70,7 @@ function submitAsk( _price, _volume, _sender) {
     ask.price = _price;
     ask.owner = _sender;
     
-    console.log("Submitted ask: " + JSON.stringify(ask));
+    log("Submitted ask: " + JSON.stringify(ask));
 
 
     if(this.minAsk.id == 0) {
@@ -126,7 +132,7 @@ function matching() {
             remove(prevAsk, currAsk);
             currAsk = tmp; 
         }
-        console.log("Match: " + JSON.stringify(this.matches[this.matches.length-1]))
+        log("Match: " + JSON.stringify(this.matches[this.matches.length-1]))
     }
     //Matching of bids and asks with fixed price
     //Iterate till you come to the end of ask or bid lists
@@ -168,7 +174,8 @@ module.exports = {
     flexBidVolume: 0,
     matches: [],
     flexBids: [],
-    idCounter: 1
+    idCounter: 1,
+    log: false,
 
 }
 
