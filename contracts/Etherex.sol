@@ -49,8 +49,8 @@ contract Etherex {
 
     Match [] matches;
 
-    mapping (address => bool) certificateAuthorities;
-    mapping (address => bool) public smartmeters;
+    //1 for CA, 2 for smart meter
+    mapping (address => uint8) identities;
 
     //Balance for consumed energy that was not bought through orders
     //if the balance is below 0, then send event that turns of energy
@@ -75,7 +75,7 @@ contract Etherex {
 
     // modifiers
     modifier onlySmartMeters(){
-        if (!smartmeters[msg.sender]) throw;
+        if (identities[msg.sender] != 2) throw;
         _;
     }
     modifier onlyUsers(){
@@ -83,7 +83,7 @@ contract Etherex {
         _;
     }
     modifier onlyCertificateAuthorities(){
-        if (!certificateAuthorities[msg.sender]) throw;
+        if (identities[msg.sender] != 1) throw;
         _;
     }
     
@@ -100,7 +100,7 @@ contract Etherex {
     
     // Register Functions
     function registerSmartmeter(address _sm) onlyCertificateAuthorities(){
-      smartmeters[_sm] = true;
+      identities[_sm] = 2;
     }
 
 
@@ -154,6 +154,7 @@ contract Etherex {
         bind(prev, ask, curr);
         
     } 
+    
     
     //TODO ?
     function submitCompAsk(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers(){
@@ -240,7 +241,7 @@ contract Etherex {
     //Constructor
   function Etherex(address _certificateAuthority) {
 
-    certificateAuthorities[_certificateAuthority] = true;
+    identities[_certificateAuthority] = 1;
     idCounter = 1;
 
   }
