@@ -26,7 +26,7 @@ https://github.com/IISM-Ethereum/Guide
 https://github.com/IISM-Ethereum/Miner
 
 
-# Interessting videos
+# videos
 
 Proof Of Stake / Scalability (devcon2)
 https://www.youtube.com/watch?v=W9b4vQ37-qQ
