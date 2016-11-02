@@ -35,12 +35,12 @@ contract Etherex {
     mapping(uint256 => Order) idToOrder;
     
     uint8 public currState;
-    uint256 public stateCounter;
+    uint256 public startBlock;
     bool isMatchingDone;
 
     uint256 idCounter;
     
-    mapping (address => address) userToSmartMeter;
+    mapping (address => address) SmartMeterToUser;
     
     Order minAsk;
     Order minBid;
@@ -91,6 +91,7 @@ contract Etherex {
     }
     
     modifier onlyInState(uint8 _state) {
+        updateState();
         if(_state != currState) throw;
         _;
     }
@@ -111,7 +112,7 @@ contract Etherex {
             currState = 1;
             matching();
         } else {                                        // Zyklus beginnt von vorne
-            stateCounter = block.number;
+            startBlock = block.number;
             isMatchingDone = false;
               /* 
             TODO: 
@@ -127,14 +128,14 @@ contract Etherex {
     }
  
     function inStateZero() internal returns (bool rv){
-        if (block.number < (stateCounter + 50)) {
+        if (block.number < (startBlock + 50)) {
             return true;
         }
         return false;
     }
 
     function inStateOne() internal returns (bool rv){
-        if (block.number >= (stateCounter + 50) && block.number < (stateCounter + 75)){
+        if (block.number >= (startBlock + 50) && block.number < (startBlock + 75)){
             return true;
         }
         return false;
@@ -144,8 +145,9 @@ contract Etherex {
 
     
     // Register Functions
-    function registerSmartmeter(address _sm) onlyCertificateAuthorities(){
+    function registerSmartmeter(address _sm, address _user) onlyCertificateAuthorities(){
       identities[_sm] = 2;
+      SmartMeterToUser[_sm] = _user; 
     }
 
 
@@ -299,7 +301,7 @@ contract Etherex {
 
     identities[_certificateAuthority] = 1;
     idCounter = 1;
-    stateCounter = block.number; 
+    startBlock = block.number; 
     currState = 0;
   }
   
