@@ -1,6 +1,6 @@
 pragma solidity ^0.4.2;
 
-import "Token.sol";
+
 /*
 
 Global TODOS:
@@ -35,19 +35,22 @@ contract Etherex {
     mapping(uint256 => Order) idToOrder;
     
     uint8 public currState;
+    uint256 public stateCounter;
+    bool isMatchingDone;
+
     uint256 idCounter;
     
     mapping (address => address) userToSmartMeter;
     
     Order minAsk;
     Order minBid;
-    Order [] flexBids;
+    Order[] flexBids;
     uint256 flexBidVolume = 0;
     //Additional array for flex bids, more optimal
     
      
 
-    Match [] matches;
+    Match[] matches;
 
     //1 for CA, 2 for smart meter
     mapping (address => uint8) identities;
@@ -91,12 +94,52 @@ contract Etherex {
         if(_state != currState) throw;
         _;
     }
-    
-    //TODO Function that has to update the state based on time,
-    //should be called as often as possible :)
+
+
+ 
+    /*
+    Wird bei jeder eingehenden Order ausgeführt. 
+    Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
+    inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
+    inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
+    */
     function updateState() internal {
-            
+        if (inStateZero() && currState != 0){
+            currState = 0;    
+            determineReservePrice();
+        } else if (inStateOne() && currState != 1) {
+            currState = 1;
+            matching();
+        } else {                                        // Zyklus beginnt von vorne
+            stateCounter = block.number;
+            isMatchingDone = false;
+              /* 
+            TODO: 
+            Zu Beginn der Periode müssten alle Orders gelöscht werden. Können wir statt idToOrder mapping ein array benutzen? Das könnte man dann mit delete auf null setzen.      
+            */
+            delete flexBids;
+            idCounter=1;
+            minAsk=0;
+            minBid=0;                               
+        }             
     }
+ 
+    function inStateZero() internal returns (bool rv){
+        if (block.number < (stateCounter + 50)) {
+            return true;
+        }
+        return false;
+    }
+
+    function inStateOne() internal returns (bool rv){
+        if (block.number >= (stateCounter + 50) && block.number < (stateCounter + 75)){
+            return true;
+        }
+        return false;
+    }
+    
+
+
     
     // Register Functions
     function registerSmartmeter(address _sm) onlyCertificateAuthorities(){
@@ -157,14 +200,14 @@ contract Etherex {
     
     
     //TODO ?
-    function submitCompAsk(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers(){
+    function submitReserveAsk(uint256 _price, uint256 _volume) onlyInState(1) onlyUsers(){
 
     } 
 
 
     //TODO Magnus Has to be automatically called from the blockchain
     //Currently without accumulating, does accumulating make sense?
-    function matching() onlyInState(1){
+    function matching() internal{
         
         Order memory prevBid;
         Order memory prevAsk;
@@ -175,11 +218,12 @@ contract Etherex {
         //Solve flexible bids first
         uint256 askVolume = 0;
         uint256 price = 0;
-        while(askVolume < flexBidVolume) {
+        while(askVolume < flexBidVolume) {       
             askVolume += currAsk.volume;
             price = currAsk.price;
         }
-        currAsk = minAsk;
+        currAsk = minAsk;                       // QUESTION: muss das nicht in die schleife rein?? 
+
         //Wouldnt it be fair that all of them go to the aftermarket
         //instead of only the last one? Round-robin too much?
         for(uint i = 0; i < flexBids.length; i++ ) {
@@ -223,18 +267,18 @@ contract Etherex {
 
 
         }
-
+        isMatchingDone = true;
         //What remains remains...
         
     }
 
     //TODO Magnus
-    function settle(uint256 _consumed, uint256 _timestamp) onlyInState(2) onlySmartMeters(){
+    function settle(uint256 _consumed, uint256 _timestamp) onlySmartMeters(){
 
     }
 
     //TODO Magnus time controlled
-    function determineCompPrice() {
+    function determineReservePrice() {
 
     }
 
@@ -243,11 +287,11 @@ contract Etherex {
 
     identities[_certificateAuthority] = 1;
     idCounter = 1;
-
+    stateCounter = block.number; 
+    currState = 0;
   }
   
  
-
 
 }
 
