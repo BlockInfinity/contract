@@ -112,10 +112,7 @@ function normalBidMatching(_indBid, _indAsk) {
         return false;
     } 
 
-    //Advance to the most possible left of both trees
-    if(!normalBidMatching(_indBid*2, _indAsk*2)) 
-        if(!normalBidMatching(_indBid*2, _indAsk))
-            if(!normalBidMatching(_indBid, _indAsk*2))
+    if(_indAsk == )
 
     currAsk = this.askTree[_indAsk];
     currBid = this.bidTree[_indBid];
@@ -136,7 +133,6 @@ function normalBidMatching(_indBid, _indAsk) {
 
     return true;
 }
-
 
 
 //TODO Magnus Has to be automatically called from the blockchain

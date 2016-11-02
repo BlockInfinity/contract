@@ -119,8 +119,10 @@ contract Etherex {
             */
             delete flexBids;
             idCounter=1;
-            minAsk=0;
-            minBid=0;                               
+            minAsk.id=0;
+            minAsk.nex=0;
+            minBid.id=0;
+            minBid.nex=0;
         }             
     }
  
@@ -233,15 +235,15 @@ contract Etherex {
             }else if(currAsk.volume < flexBids[i].volume) {
                 matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
                 flexBids[i].volume -= currAsk.volume;
-                tmp = currAsk.nex;
-                remove(prevAsk, currAsk);
-                currAsk = idToOrder[tmp]; 
+                prevAsk = currAsk;
+                currAsk=n(currAsk);
+                delete prevAsk;
                 i-=1;
             } else {
                 matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
-                tmp = currAsk.nex;
-                remove(prevAsk, currAsk);
-                currAsk = idToOrder[tmp]; 
+                prevAsk = currAsk;
+                currAsk=n(currAsk);
+                delete prevAsk; 
             }
         }
         //Matching of bids and asks with fixed price
@@ -250,19 +252,29 @@ contract Etherex {
 
             //Round robin so that everyone gets something?
             if(currAsk.volume > currBid.volume) {
+                //Delete the bid
                 matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner));
                 currAsk.volume -= currBid.volume;
+                prevBid = currBid;
+                currBid=n(currBid);
+                delete prevBid;
+
             }else if(currAsk.volume < currBid.volume) {
+                //Delete the ask
                 matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner));
                 currBid.volume -= currAsk.volume;
-                tmp = currAsk.nex;
-                remove(prevAsk, currAsk);
-                currAsk = idToOrder[tmp]; 
+                prevAsk = currAsk;
+                currAsk=n(currAsk);
+                delete prevAsk; 
             } else {
-                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
-                tmp = currAsk.nex;
-                remove(prevAsk, currAsk);
-                currAsk = idToOrder[tmp]; 
+                //Delete both bid and ask
+                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner));
+                prevAsk = currAsk;
+                currAsk=n(currAsk);
+                delete prevAsk;
+                prevBid = currBid;
+                currBid=n(currBid);
+                delete prevBid;
             }
 
 
