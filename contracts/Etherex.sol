@@ -20,20 +20,7 @@ contract Etherex {
       uint256 timestamp;
     }
     
-    //state times in minutes
-    uint256[] stateTimes = [10, 10, 10 ,10];
-    uint8[] states = [0,1,2,3];
-    
-    struct Order {
-                
-        uint256 id;
-        uint256 nex;
-        address owner;
-        uint256 volume;
-        uint256 price;
-        
-    }
-    mapping(uint256 => Order) idToOrder;
+
     
     uint8 public currState;
     uint256 public startBlock;
@@ -43,12 +30,7 @@ contract Etherex {
     
     mapping (address => address) smartMeterToUser;
     
-    Order minAsk;
-    Order minBid;
-    Order minReserveAsk;
-    Order[] flexBids;
-    uint256 flexBidVolume = 0;
-    uint256 bigProducerMinVolume = 100000;
+
     //Additional array for flex bids, more optimal
     
      
@@ -62,22 +44,6 @@ contract Etherex {
     //if the balance is below 0, then send event that turns of energy
     mapping (address => uint256) public collateral;
 
-    //Linked list helper functions
-    //Returns next in list
-    function n(Order _o) internal returns(Order) {
-        return idToOrder[_o.nex];
-    }
-    //Binds the node into list
-    function bind(Order _prev, Order _curr, Order _next) internal{
-        _prev.nex = _curr.id;
-        _curr.id = _next.id;
-    }
-    
-    
-    function remove(Order _prev, Order _curr) internal{
-        _prev.nex = n(_curr).id;
-        delete _curr;
-    } 
 
     // modifiers
     modifier onlySmartMeters(){
@@ -96,11 +62,6 @@ contract Etherex {
     modifier onlyInState(uint8 _state) {
         updateState();
         if(_state != currState) throw;
-        _;
-    }
-
-    modifier onlyBigProducers(uint256 _volume) {
-        if (_volume <  bigProducerMinVolume) throw;
         _;
     }
 
@@ -126,12 +87,8 @@ contract Etherex {
             TODO: 
             Zu Beginn der Periode müssten alle Orders gelöscht werden. Können wir statt idToOrder mapping ein array benutzen? Das könnte man dann mit delete auf null setzen.      
             */
-            delete flexBids;
-            idCounter=1;
-            minAsk.id=0;
-            minAsk.nex=0;
-            minBid.id=0;
-            minBid.nex=0;
+            lowest_ask_id=0;
+            highest_bid_id=0;
         }             
     }
  
@@ -160,181 +117,184 @@ contract Etherex {
 
 
     //If this is called, just put it on the beginning on the list
-    function submitFlexBid(uint256 _volume) onlyInState(0) onlyUsers(){
-        Order bid;
-        bid.volume = _volume;
-        flexBidVolume +=_volume;
-        flexBids.push(bid);
+    function submitFlexBidOrder(uint256 _volume) onlyInState(0) onlyUsers(){
     }
 
-    function submitBid(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers(){
-        
-        Order bid;
-        bid.volume = _volume;
-        bid.id = idCounter++;
-        bid.price = _price;
-        bid.owner = msg.sender;
-        
-        //Iterate over list till same price encountered
-        Order memory curr = minBid;
-        Order memory prev;
-        prev.nex = minBid.id;
-        while(bid.price > curr.price) {
-            curr=n(curr);
-            prev = n(prev);
+
+    // ################################ TEST ################################
+
+    bytes32 lowest_ask_id;
+    bytes32 highest_bid_id;
+    
+    mapping (bytes32 => Pointer) ask_orderbook;
+    mapping (bytes32 => Pointer) bid_orderbook;
+    mapping (bytes32 => Order) orders;
+
+    struct Order{
+        bytes32 typ;
+        uint256 volume;
+        uint256 price;
+        bytes32 id;
+        address owner;
+        uint256 blockNumber;
+    }
+
+    struct Pointer{
+        bytes32 id;
+        bytes32 next_id;
+    }
+
+    /* 
+    Modifiers ignored for test purposes (onlyInState(0) onlyUsers())
+    author: Magnus
+    */
+    function submitBidOrder(uint256 _price, uint256 _volume) payable {
+        if (_volume <= 0 || _price <=0) throw;
+        uint256 toPay;
+        toPay = ((_volume*_price) * 10000000000000000);
+        if (msg.value < toPay) throw;
+        if (msg.value >= toPay){
+            msg.sender.send(msg.value - toPay);
         }
-        bind(prev, bid, curr);
-        
+        save_order("BID",_volume,_price);
+    } 
+
+    /* 
+    Modifiers ignored for test purposes (onlyInState(0) onlyUsers())
+    author: Magnus
+    */
+    function submitAskOrder(uint256 _price, uint256 _volume) {
+        if (_volume <= 0 || _price <=0) throw;
+        save_order("ASK",_volume,_price);
+    }
+
+    /*
+    saves bid / ask orders based on best price
+    author: Magnus
+    */
+    function save_order(bytes32 _typ,uint256 _volume, uint256 _price) internal returns(bytes32 rv){
+
+        bytes32 order_id = sha3(_typ,_volume,_price,msg.sender,block.number);
+
+        if (orders[order_id].id != 0) throw;
+
+        orders[order_id].typ = _typ;
+        orders[order_id].volume = _volume;
+        orders[order_id].price = _price;
+        orders[order_id].owner = msg.sender;
+        orders[order_id].blockNumber = block.number;
+        orders[order_id].id = order_id;
+
+
+        bool positionFound = false;
+        bytes32 id_iter;
+        if (_typ == "ASK"){ 
+            ask_orderbook[order_id].id = order_id;                  // oder_id kann schon gesetzt werden und next_id muss im folgenden bestimmt werden 
+            if (orders[lowest_ask_id].price == 0) {                 // Fall 1: es sind noch keine orders vorhanden                    
+                lowest_ask_id  = order_id;
+            } else if (_price < orders[lowest_ask_id].price) {       // Fall 2: order wird vorne dran gehangen   
+                ask_orderbook[order_id].next_id = lowest_ask_id;
+                lowest_ask_id = order_id;              
+            } else {                                                // Fall 3: aorder wird zwischendrin platziert
+                id_iter = lowest_ask_id;
+                while (!positionFound){ 
+                    if (_price < orders[ask_orderbook[id_iter].next_id].price) {
+                        ask_orderbook[order_id].next_id = ask_orderbook[id_iter].next_id;
+                        ask_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                    if (ask_orderbook[id_iter].next_id == 0){       // Fall 4: order wird ganz hinten dran gehangen
+                        ask_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                id_iter = ask_orderbook[id_iter].next_id;
+                }
+            }
+        }
+
+        if (_typ == "BID"){
+        bid_orderbook[order_id].id = order_id;
+            if (orders[highest_bid_id].price == 0) {
+             highest_bid_id  = order_id;
+            } else if (_price > orders[highest_bid_id].price){
+             bid_orderbook[order_id].next_id = highest_bid_id ;
+             highest_bid_id = order_id; 
+            } else {
+                id_iter = highest_bid_id;
+                while (!positionFound){ 
+                    if (_price > orders[bid_orderbook[id_iter].next_id].price) {
+                        bid_orderbook[order_id].next_id = bid_orderbook[id_iter].next_id;
+                        bid_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                    if (bid_orderbook[id_iter].next_id == 0){ 
+                        bid_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                    id_iter = bid_orderbook[id_iter].next_id;
+                }
+            }
+        }
+    }
+
+    /*
+    Returns ordered list of bid orders 
+    author: Magnus
+    */
+    uint256[] bidQuotes;
+    uint256[] bidAmounts;
+    function getBidOrders() constant returns (uint256[] rv1,uint256[] rv2) {
+        bytes32 id_iter_bid = highest_bid_id;
+        bidQuotes = rv1;
+        bidAmounts = rv2;
+
+        while (orders[id_iter_bid].volume != 0){
+            bidAmounts.push(orders[id_iter_bid].volume);
+            bidQuotes.push(orders[id_iter_bid].price);
+            id_iter_bid = bid_orderbook[id_iter_bid].next_id;
+        }
+
+        return(bidQuotes,bidAmounts);
+    }
+
+     /*
+    Returns ordered list of ask orders 
+    author: Magnus
+    */
+    uint256[] askQuotes;
+    uint256[] askAmounts;
+    function getAskOrders() constant returns (uint256[] rv1,uint256[] rv2){
+        askQuotes = rv1;
+        askAmounts = rv2;
+        bytes32 id_iter_ask = lowest_ask_id;
+        while (orders[id_iter_ask].volume != 0){
+            askQuotes.push(orders[id_iter_ask].price);
+            askAmounts.push(orders[id_iter_ask].volume);
+            id_iter_ask = ask_orderbook[id_iter_ask].next_id;
+        }
+        return(askQuotes,askAmounts);
     }
     
-    //Calculate min ask to satisfy flexible bids on the way?
-    function submitAsk(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers(){
-        
-        Order ask;
-        ask.volume = _volume;
-        ask.id = idCounter++;
-        ask.price = _price;
-        ask.owner = msg.sender;
-        
-        
-        
-        //Iterate over list till same price encountered
-        Order memory curr = minBid;
-        Order memory prev;
-        prev.nex = minAsk.id;
-        while(ask.price > curr.price) {
-            curr=n(curr);
-            prev = n(prev);
-        }
-        bind(prev, ask, curr);
-        
-    } 
-    
-    
+
     //Producer can submit ask if he is able to supply two times the average needed volume of
     //electricity
-    function submitReserveAsk(uint256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyBigProducers(_volume){
-
-        Order reserveAsk;
-        reserveAsk.volume = _volume;
-        reserveAsk.id = idCounter++;
-        reserveAsk.price = _price;
-        reserveAsk.owner = msg.sender;
-        
-        //Iterate over list till same price encountered
-        Order memory curr = minReserveAsk;
-        Order memory prev;
-        prev.nex = minReserveAsk.id;
-        while(reserveAsk.price > curr.price) {
-            curr=n(curr);
-            prev = n(prev);
-        }
-        bind(prev, reserveAsk, curr);
-
+    function submitReserveAsk(uint256 _price, uint256 _volume) onlyInState(1) onlyUsers(){
 
     } 
 
 
     //TODO Magnus Has to be automatically called from the blockchain
     //Currently without accumulating, does accumulating make sense?
-    function matching() internal{
+    function matching() internal{   
         
-        Order memory prevBid;
-        Order memory prevAsk;
-        Order memory currBid = minBid;
-        Order memory currAsk = minAsk;
-        uint tmp;
-        
-        //Solve flexible bids first
-        uint256 askVolume = 0;
-        uint256 price = 0;
-        while(askVolume < flexBidVolume) {       
-            askVolume += currAsk.volume;
-            price = currAsk.price;
-        }
-        currAsk = minAsk;                       // QUESTION: muss das nicht in die schleife rein?? 
 
-        //Wouldnt it be fair that all of them go to the aftermarket
-        //instead of only the last one? Round-robin too much?
-        for(uint i = 0; i < flexBids.length; i++ ) {
-            if(currAsk.volume > flexBids[i].volume) {
-                matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-                currAsk.volume -= flexBids[i].volume;
-            }else if(currAsk.volume < flexBids[i].volume) {
-                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-                flexBids[i].volume -= currAsk.volume;
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk;
-                i-=1;
-            } else {
-                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk; 
-            }
-        }
-        //Matching of bids and asks with fixed price
-        //Iterate till you come to the end of ask or bid lists
-        while(currAsk.id != 0 && currBid.id != 0) {
-
-            //Round robin so that everyone gets something?
-            if(currAsk.volume > currBid.volume) {
-                //Delete the bid
-                matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner, block.timestamp));
-                currAsk.volume -= currBid.volume;
-                prevBid = currBid;
-                currBid=n(currBid);
-                delete prevBid;
-
-            }else if(currAsk.volume < currBid.volume) {
-                //Delete the ask
-                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
-                currBid.volume -= currAsk.volume;
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk; 
-            } else {
-                //Delete both bid and ask
-                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk;
-                prevBid = currBid;
-                currBid=n(currBid);
-                delete prevBid;
-            }
-
-
-        }
-        isMatchingDone = true;
-        //What remains remains...
         
     }
 
     //Settlement function called by smart meter, the user is checked if he payed enough
     //for electricity
-    function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters(){
+    function settleUserPosition(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters(){
 
-        uint256 payedForVolume = 0;
-        address consumer = smartMeterToUser[msg.sender];
-        for(uint i=0; i < matches.length; i++) {
-            if(matches[i].bidOwner == consumer) {
-                payedForVolume+= matches[i].volume;
-                //Check if the consumer has enough to pay, then pay
-                if(matches[i].bidOwner.balance >= matches[i].price * matches[i].volume){
-                    //Send amount
-                } else {
-                    throw;
-                }
-            }
-        }
-
-        //If he did not buy enough electricity
-        if(payedForVolume < _consumedVolume) {
-            //Pay for remaining electricity
-            uint256 price = determineReservePrice();
-        }
 
     }
 
