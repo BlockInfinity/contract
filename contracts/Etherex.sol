@@ -17,6 +17,7 @@ contract Etherex {
       uint256 price;
       address askOwner;
       address bidOwner;
+      uint256 timestamp;
     }
     
     //state times in minutes
@@ -257,17 +258,17 @@ contract Etherex {
         //instead of only the last one? Round-robin too much?
         for(uint i = 0; i < flexBids.length; i++ ) {
             if(currAsk.volume > flexBids[i].volume) {
-                matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner));
+                matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
                 currAsk.volume -= flexBids[i].volume;
             }else if(currAsk.volume < flexBids[i].volume) {
-                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
+                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
                 flexBids[i].volume -= currAsk.volume;
                 prevAsk = currAsk;
                 currAsk=n(currAsk);
                 delete prevAsk;
                 i-=1;
             } else {
-                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner));
+                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
                 prevAsk = currAsk;
                 currAsk=n(currAsk);
                 delete prevAsk; 
@@ -280,7 +281,7 @@ contract Etherex {
             //Round robin so that everyone gets something?
             if(currAsk.volume > currBid.volume) {
                 //Delete the bid
-                matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner));
+                matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner, block.timestamp));
                 currAsk.volume -= currBid.volume;
                 prevBid = currBid;
                 currBid=n(currBid);
@@ -288,14 +289,14 @@ contract Etherex {
 
             }else if(currAsk.volume < currBid.volume) {
                 //Delete the ask
-                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner));
+                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
                 currBid.volume -= currAsk.volume;
                 prevAsk = currAsk;
                 currAsk=n(currAsk);
                 delete prevAsk; 
             } else {
                 //Delete both bid and ask
-                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner));
+                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
                 prevAsk = currAsk;
                 currAsk=n(currAsk);
                 delete prevAsk;
