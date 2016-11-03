@@ -312,13 +312,34 @@ contract Etherex {
         
     }
 
-    //TODO Magnus
-    function settle(uint256 _consumed, uint256 _timestamp) onlySmartMeters(){
+    //Settlement function called by smart meter, the user is checked if he payed enough
+    //for electricity
+    function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters(){
+
+        uint256 payedForVolume = 0;
+        address consumer = smartMeterToUser[msg.sender];
+        for(uint i=0; i < matches.length; i++) {
+            if(matches[i].bidOwner == consumer) {
+                payedForVolume+= matches[i].volume;
+                //Check if the consumer has enough to pay, then pay
+                if(matches[i].bidOwner.balance >= matches[i].price * matches[i].volume){
+                    //Send amount
+                } else {
+                    throw;
+                }
+            }
+        }
+
+        //If he did not buy enough electricity
+        if(payedForVolume < _consumedVolume) {
+            //Pay for remaining electricity
+            uint256 price = determineReservePrice();
+        }
 
     }
 
     //TODO Magnus time controlled
-    function determineReservePrice() {
+    function determineReservePrice() returns (uint256){
 
     }
 
