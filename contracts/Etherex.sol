@@ -40,12 +40,14 @@ contract Etherex {
 
     uint256 idCounter;
     
-    mapping (address => address) SmartMeterToUser;
+    mapping (address => address) smartMeterToUser;
     
     Order minAsk;
     Order minBid;
+    Order minReserveAsk;
     Order[] flexBids;
     uint256 flexBidVolume = 0;
+    uint256 bigProducerMinVolume = 100000;
     //Additional array for flex bids, more optimal
     
      
@@ -82,7 +84,7 @@ contract Etherex {
         _;
     }
     modifier onlyUsers(){
-        if (userToSmartMeter[msg.sender] == 0) throw;
+        if (smartMeterToUser[msg.sender] == 0) throw;
         _;
     }
     modifier onlyCertificateAuthorities(){
@@ -93,6 +95,11 @@ contract Etherex {
     modifier onlyInState(uint8 _state) {
         updateState();
         if(_state != currState) throw;
+        _;
+    }
+
+    modifier onlyBigProducers(uint256 _volume) {
+        if (_volume <  bigProducerMinVolume) throw;
         _;
     }
 
@@ -147,7 +154,7 @@ contract Etherex {
     // Register Functions
     function registerSmartmeter(address _sm, address _user) onlyCertificateAuthorities(){
       identities[_sm] = 2;
-      SmartMeterToUser[_sm] = _user; 
+      smartMeterToUser[_sm] = _user; 
     }
 
 
@@ -203,8 +210,26 @@ contract Etherex {
     } 
     
     
-    //TODO ?
-    function submitReserveAsk(uint256 _price, uint256 _volume) onlyInState(1) onlyUsers(){
+    //Producer can submit ask if he is able to supply two times the average needed volume of
+    //electricity
+    function submitReserveAsk(uint256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyBigProducers(_volume){
+
+        Order reserveAsk;
+        reserveAsk.volume = _volume;
+        reserveAsk.id = idCounter++;
+        reserveAsk.price = _price;
+        reserveAsk.owner = msg.sender;
+        
+        //Iterate over list till same price encountered
+        Order memory curr = minReserveAsk;
+        Order memory prev;
+        prev.nex = minReserveAsk.id;
+        while(reserveAsk.price > curr.price) {
+            curr=n(curr);
+            prev = n(prev);
+        }
+        bind(prev, reserveAsk, curr);
+
 
     } 
 
