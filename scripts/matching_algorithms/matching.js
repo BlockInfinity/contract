@@ -40,20 +40,45 @@ for(var i = 0; i < NUM_TEST_ASKS; i++) {
     matching_alg.submitAsk(randP(), randV(), addressCounter++); 
 }
 
+
 stop = Date.now();
 end = stop - start;
 console.log("################################################################################");
 console.log("Time adding asks: " + end + " milliseconds");
 
+console.log("################################################################################");
+console.log("Counting asks...");
+
+curr = matching_alg.minAsk;
+counter = 0;
+while(curr) {
+    counter++;
+    curr = curr.nex;
+}
+console.log(counter);
+
+
 start = Date.now()
 for(var i = 0; i < NUM_TEST_BIDS; i++) {
     matching_alg.submitBid(randP(), randV(), addressCounter++); 
 }
+
 stop = Date.now();
 end = stop - start;
 console.log("################################################################################");
 console.log("Time adding bids: " + end + " milliseconds");
 
+console.log("################################################################################");
+console.log("Counting bids...");
+
+curr = matching_alg.minBid;
+counter = 0;
+while(curr) {
+    counter++;
+    curr = curr.nex;
+    console.log(curr);
+}
+console.log(counter);
 
 start = Date.now()
 for(var i = 0; i < NUM_TEST_FLEXBIDS; i++) {

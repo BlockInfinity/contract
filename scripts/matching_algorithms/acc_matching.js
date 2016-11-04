@@ -58,7 +58,11 @@ function submitBid(_price, _volume, _sender) {
         prev = n(prev);
     }
     bind(prev, bid, curr);
-    
+    if(bid.nex == this.minBid) {
+        this.minBid == bid;
+    }
+
+
 }
 
 //Calculate min ask to satisfy flexible bids on the way?
@@ -78,7 +82,6 @@ function submitAsk( _price, _volume, _sender) {
         return;
     }
     
-    
     //Iterate over list till same price encountered
     var curr = this.minAsk;
     var prev = {};
@@ -86,10 +89,24 @@ function submitAsk( _price, _volume, _sender) {
     while(curr && ask.price > curr.price) {
         curr=n(curr);
         prev = n(prev);
+        this.minAsk.id++
     }
-    bind(prev, ask, curr);
-    
+    prev.nex = ask;
+    ask.nex = curr;
+    if(ask.nex == this.minAsk) {
+        this.minAsk == ask;
+    }
 } 
+
+function countAsks() {
+    var curr = this.minAsk;
+    counter = 0;
+    while(curr){
+        counter++;
+        curr = n(curr);
+    }
+    return counter;
+}
 
 function remove(prev, curr) {
     prev.nex = curr.nex;
@@ -108,9 +125,10 @@ function matching() {
     //Solve flexible bids first
     var  askVolume = 0;
     var  price = 0;
-    while(askVolume < this.flexBidVolume) {
+    while(askVolume < this.flexBidVolume && currAsk) {
         askVolume += currAsk.volume;
         price = currAsk.price;
+        currAsk = currAsk.nex;
     }
     currAsk = this.minAsk;
     //Wouldnt it be fair that all of them go to the aftermarket
@@ -169,6 +187,7 @@ module.exports = {
     submitBid: submitBid,
     submitAsk: submitAsk,
     matching: matching,
+    count: countAsks,
     minAsk: {id: 0, price: 0},
     minBid: {id: 0, price: 0},
     flexBidVolume: 0,
