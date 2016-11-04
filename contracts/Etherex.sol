@@ -248,7 +248,7 @@ contract Etherex {
         //Solve flexible bids first
         uint256 askVolume = 0;
         uint256 price = 0;
-        while(askVolume < flexBidVolume currAsk.id != 0) {       
+        while(askVolume < flexBidVolume && currAsk.id != 0) {       
             askVolume += currAsk.volume;
             price = currAsk.price;
         }
