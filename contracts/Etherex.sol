@@ -251,9 +251,10 @@ contract Etherex {
         while(askVolume < flexBidVolume && currAsk.id != 0) {       
             askVolume += currAsk.volume;
             price = currAsk.price;
+            currAsk = n(currAsk);
         }
-        currAsk = minAsk;                       // QUESTION: muss das nicht in die schleife rein?? 
 
+        currAsk = minAsk;
         //Wouldnt it be fair that all of them go to the aftermarket
         //instead of only the last one? Round-robin too much?
         for(uint i = 0; i < flexBids.length; i++ ) {
