@@ -21,7 +21,6 @@ contract Etherex {
     }
     
     //state times in minutes
-    uint256[] stateTimes = [10, 10, 10 ,10];
     uint8[] states = [0,1,2,3];
     
     struct Order {
@@ -69,8 +68,9 @@ contract Etherex {
     }
     //Binds the node into list
     function bind(Order _prev, Order _curr, Order _next) internal{
-        _prev.nex = _curr.id;
-        _curr.id = _next.id;
+        idToOrder[_curr.id] = _curr;
+        idToOrder[_prev.id] = _prev;
+        idToOrder[_next.id] = _next;
     }
     
     
@@ -157,17 +157,26 @@ contract Etherex {
       identities[_sm] = 2;
       smartMeterToUser[_sm] = _user; 
     }
-
+    
+    function countBids() returns(uint256) {
+        uint256 counter = 0;
+        Order memory curr = minAsk;
+        while(curr.id != 0) {
+            counter++;
+            curr = n(curr);
+        }
+        return counter;
+    }
 
     //If this is called, just put it on the beginning on the list
-    function submitFlexBid(uint256 _volume) onlyInState(0) onlyUsers(){
+    function submitFlexBid(uint256 _volume) {
         Order bid;
         bid.volume = _volume;
         flexBidVolume +=_volume;
         flexBids.push(bid);
     }
 
-    function submitBid(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers() {
+    function submitBid(uint256 _price, uint256 _volume)  {
         
         Order bid;
         bid.volume = _volume;
@@ -179,16 +188,27 @@ contract Etherex {
         Order memory curr = minBid;
         Order memory prev;
         prev.nex = minBid.id;
+        if(minBid.id == 0) {
+            minBid = bid;
+            return;
+        }
+
         while(bid.price > curr.price && curr.id != 0) {
             curr=n(curr);
             prev = n(prev);
         }
+        //Have to do it here because solidity passes by value -.-
+        bid.nex = curr.id;
+        prev.nex = bid.id;
         bind(prev, bid, curr);
+        if(bid.nex == minBid.id) {
+            minBid = bid;
+        }
         
     }
     
     //Calculate min ask to satisfy flexible bids on the way?
-    function submitAsk(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers(){
+    function submitAsk(uint256 _price, uint256 _volume) {
         
         Order ask;
         ask.volume = _volume;
@@ -196,18 +216,26 @@ contract Etherex {
         ask.price = _price;
         ask.owner = msg.sender;
         
-        
+        if(minAsk.id == 0){
+            minAsk = ask;
+            return;
+        }
         
         //Iterate over list till same price encountered
-        Order memory curr = minBid;
+        Order memory curr = minAsk;
         Order memory prev;
         prev.nex = minAsk.id;
         while(ask.price > curr.price && curr.id != 0) {
             curr=n(curr);
             prev = n(prev);
         }
+        ask.nex = curr.id;
+        prev.nex = ask.id;
         bind(prev, ask, curr);
-        
+        if(ask.nex == minAsk.id) {
+            minAsk = ask;
+        }
+
     } 
     
     
@@ -225,19 +253,33 @@ contract Etherex {
         Order memory curr = minReserveAsk;
         Order memory prev;
         prev.nex = minReserveAsk.id;
+
+        if(minReserveAsk.id == 0) {
+            minReserveAsk = reserveAsk;
+            return;
+        }
+
         while(reserveAsk.price > curr.price && curr.id != 0) {
             curr=n(curr);
             prev = n(prev);
         }
+        reserveAsk.nex = curr.id;
+        prev.nex = reserveAsk.id;
         bind(prev, reserveAsk, curr);
+        if(reserveAsk.nex == minReserveAsk.id) {
+            minReserveAsk = reserveAsk;
+        }
 
-
-    } 
+    }
+    
+    function checkMatches() returns(uint256){
+        return matches.length;
+    }
 
 
     //TODO Magnus Has to be automatically called from the blockchain
     //Currently without accumulating, does accumulating make sense?
-    function matching() internal{
+    function matching(){
         
         Order memory prevBid;
         Order memory prevAsk;
@@ -257,7 +299,7 @@ contract Etherex {
         currAsk = minAsk;
         //Wouldnt it be fair that all of them go to the aftermarket
         //instead of only the last one? Round-robin too much?
-        for(uint i = 0; i < flexBids.length; i++ ) {
+        for(uint i = 0; i < flexBids.length && currAsk.id != 0; i++ ) {
             if(currAsk.volume > flexBids[i].volume) {
                 matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
                 currAsk.volume -= flexBids[i].volume;
@@ -308,6 +350,9 @@ contract Etherex {
 
 
         }
+        minAsk.id = 0;
+        minBid.id = 0;
+        
         isMatchingDone = true;
         //What remains remains...
         
