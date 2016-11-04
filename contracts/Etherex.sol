@@ -167,7 +167,7 @@ contract Etherex {
         flexBids.push(bid);
     }
 
-    function submitBid(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers(){
+    function submitBid(uint256 _price, uint256 _volume) onlyInState(0) onlyUsers() {
         
         Order bid;
         bid.volume = _volume;
@@ -179,7 +179,7 @@ contract Etherex {
         Order memory curr = minBid;
         Order memory prev;
         prev.nex = minBid.id;
-        while(bid.price > curr.price) {
+        while(bid.price > curr.price && curr.id != 0) {
             curr=n(curr);
             prev = n(prev);
         }
@@ -202,7 +202,7 @@ contract Etherex {
         Order memory curr = minBid;
         Order memory prev;
         prev.nex = minAsk.id;
-        while(ask.price > curr.price) {
+        while(ask.price > curr.price && curr.id != 0) {
             curr=n(curr);
             prev = n(prev);
         }
@@ -225,7 +225,7 @@ contract Etherex {
         Order memory curr = minReserveAsk;
         Order memory prev;
         prev.nex = minReserveAsk.id;
-        while(reserveAsk.price > curr.price) {
+        while(reserveAsk.price > curr.price && curr.id != 0) {
             curr=n(curr);
             prev = n(prev);
         }
@@ -340,7 +340,7 @@ contract Etherex {
 
     //TODO Magnus time controlled
     function determineReservePrice() returns (uint256){
-
+        
     }
 
     //Constructor
