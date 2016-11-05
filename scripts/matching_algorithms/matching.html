@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <script>
+    var lowest_ask_id;
+    var highest_bid_id;
+    var ask_orderbook = {};
+    var bid_orderbook = {};
+    var orders = {};
+
+    function submitBidOrder(_maxprice, _volume) { // bid orders without _maxprice stated are simply orders with a very high _maxprice. 
+        save_order("BID", _volume, _maxprice);
+    }
+
+    function submitAskOrder(_price, _volume) {
+        save_order("ASK", _volume, _price);
+    }
+
+
+    function submitReserveAsk(_price, _volume) { // wird im selben ask order book gespeichert, da  jenes beim matching geleert wird
+        save_order("ASK", _volume, _price);
+    }
+
+
+    var order_id = 0;
+    var owner_address = 0;
+
+    function save_order(_typ, _volume, _price) {
+        var Pointer = {
+            id: undefined,
+            next_id: undefined
+        };
+
+        var Order = {
+            typ: undefined,
+            volume: undefined,
+            price: undefined,
+            id: undefined,
+            owner: undefined,
+        };
+
+        owner_address++;
+        order_id++;
+
+        if (order_id in orders) return;
+        orders[order_id] = Order;
+        orders[order_id].typ = _typ;
+        orders[order_id].volume = _volume;
+        orders[order_id].price = _price;
+        orders[order_id].id = order_id;
+        orders[order_id].owner = owner_address;
+        var positionFound = false;
+        var id_iter;
+
+        if (_typ == "ASK") {
+            ask_orderbook[order_id] = Pointer;
+            ask_orderbook[order_id].id = order_id; // oder_id kann schon gesetzt werden und next_id muss im folgenden bestimmt werden
+            if (orders[lowest_ask_id] == undefined) { // Fall 1: es sind noch keine orders vorhanden
+                lowest_ask_id = order_id;
+            } else if (_price < orders[lowest_ask_id].price) { // Fall 2: order wird vorne dran gehangen
+                ask_orderbook[order_id].next_id = lowest_ask_id;
+                lowest_ask_id = order_id;
+            } else { // Fall 3: aorder wird zwischendrin platziert
+                id_iter = lowest_ask_id;
+                while (!positionFound) {
+                    if (ask_orderbook[id_iter].next_id == undefined) { // Fall 4: order wird ganz hinten dran gehangen
+                        ask_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                    if (_price < orders[ask_orderbook[id_iter].next_id].price) {
+                        ask_orderbook[order_id].next_id = ask_orderbook[id_iter].next_id;
+                        ask_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                    id_iter = ask_orderbook[id_iter].next_id;
+                }
+            }
+        }
+
+        if (_typ == "BID") {
+            bid_orderbook[order_id] = Pointer;
+            bid_orderbook[order_id].id = order_id; // oder_id kann schon gesetzt werden und next_id muss im folgenden bestimmt werden
+            if (orders[highest_bid_id] == undefined) { // Fall 1: es sind noch keine orders vorhanden
+                highest_bid_id = order_id;
+            } else if (_price > orders[highest_bid_id].price) { // Fall 2: order wird vorne dran gehangen
+                bid_orderbook[order_id].next_id = highest_bid_id;
+                highest_bid_id = order_id;
+            } else {
+                id_iter = highest_bid_id;
+                while (!positionFound) {
+                    if (bid_orderbook[id_iter].next_id == undefined) { // Fall 3: order wird ganz hinten dran gehangen
+                        bid_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                    if (_price > orders[bid_orderbook[id_iter].next_id].price) { // Fall 4: order zwischendrin platzieren
+                        bid_orderbook[order_id].next_id = bid_orderbook[id_iter].next_id;
+                        bid_orderbook[id_iter].next_id = order_id;
+                        positionFound = true;
+                    }
+                    id_iter = bid_orderbook[id_iter].next_id;
+                }
+            }
+        }
+    }
+    /*
+            Returns ordered list of bid orders
+            author: Magnus
+            */
+
+
+    function getBidOrders() {
+        var id_iter_bid = highest_bid_id;
+        console.log("###### Bid Orders ######");
+        while (orders[id_iter_bid] != undefined) {
+            console.log("Price: " + orders[id_iter_bid].price + " | Volume: " + orders[id_iter_bid].volume + " | Owner: " + orders[id_iter_bid].owner);
+            id_iter_bid = bid_orderbook[id_iter_bid].next_id;
+        }
+    }
+
+
+    function getAskOrders() {
+        var id_iter_ask = lowest_ask_id;
+        console.log("###### Ask Orders ######");
+        while (orders[id_iter_ask] != undefined) {
+            console.log("Price: " + orders[id_iter_ask].price + " | Volume: " + orders[id_iter_ask].volume + " | Owner: " + orders[id_iter_ask].owner);
+            id_iter_ask = ask_orderbook[id_iter_ask].next_id;
+        }
+    }
+
+
+    var matchedAskOrders = {};          // wird niemals gelöscht
+    var matchedBidOrders = {};          // wird niemals gelöscht
+    var cumAskVol = 0;
+    var cumBidVol = 0;
+    var matching_price;
+
+
+    function determine_matching_price() {
+        var isMatched = false;
+        matching_price = orders[lowest_ask_id].price;
+        var bid_price = orders[highest_bid_id].price;
+        var id_iter_ask = lowest_ask_id;
+        var id_iter_bid = highest_bid_id;
+
+
+        while (!isMatched) {
+            while (orders[id_iter_ask].price == matching_price) {
+                var volume = orders[id_iter_ask].volume;
+                var owner = orders[id_iter_ask].owner;
+                var next = ask_orderbook[id_iter_ask].next_id;
+
+                cumAskVol += volume;
+                matchedAskOrders[owner] = volume;
+                id_iter_ask = next;
+
+                if (id_iter_ask == undefined) {
+                    break;
+                }
+            }
+            while (orders[id_iter_bid].price >= matching_price) { // TODO: die bid preise gehe ich jedes Mal von vorne durch. effizienter macehn
+                var volume = orders[id_iter_bid].volume;
+                var owner = orders[id_iter_bid].owner;
+                var next = bid_orderbook[id_iter_bid].next_id;
+
+                cumBidVol += volume;
+                matchedBidOrders[owner] = volume;
+                id_iter_bid = next;
+
+                if (id_iter_bid == undefined) {
+                    break;
+                }
+            }
+            if (cumAskVol >= cumBidVol) {
+                isMatched = true;
+            } else {
+                matching_price = orders[id_iter_ask].price;
+                id_iter_bid = highest_bid_id;
+                cumBidVol = 0;
+            }
+        }
+
+        var share = cumBidVol / cumAskVol;
+
+        console.log("Price: " + matching_price + " | cumBidVol: " + cumBidVol + " | cumAskVol: " + cumAskVol + " and share: " + share);
+
+        for (owner in matchedAskOrders) {   // schon vorher im algorithmus definieren
+            matchedAskOrders[owner] = {ordered_Volume:matchedAskOrders[owner] * share,time:Date.now()};
+        }
+         for (owner in matchedBidOrders) {
+            matchedBidOrders[owner] = {ordered_Volume:matchedBidOrders[owner],time:Date.now()};
+        }
+
+        orders = {}; // nach dem matching müssen alle übrig gebliebenen orders gelöscht werden.
+    }
+
+    var MIN_RESERVE_VOLUME = 1000;
+    var matchedReserveOrders = {};      
+    var reserve_price;
+    var cumAskReserveVol = 0;
+
+    function determineReservePrice() {
+        var isFound = false;
+        reserve_price = orders[lowest_ask_id].price;
+        var id_iter_ask = lowest_ask_id;
+
+        while (!isFound) {
+            while (orders[id_iter_ask].price == reserve_price) {
+                var volume = orders[id_iter_ask].volume;
+                var owner = orders[id_iter_ask].owner;
+                var next = ask_orderbook[id_iter_ask].next_id;
+
+                cumAskReserveVol += volume;
+                matchedReserveOrders[owner] = {ordered_Volume:volume,time:Date.now()};
+                id_iter_ask = next;
+
+                if (id_iter_ask == undefined) {
+                    break;
+                }
+            }
+
+            if (cumAskReserveVol >= MIN_RESERVE_VOLUME) {
+                isFound = true;
+            } else {
+                reserve_price = orders[id_iter_ask].price;
+            }
+        }
+        orders = {};
+
+        for (owner in matchedBidOrders) {
+            if (matchedBidOrders[owner].reserve_price == undefined){
+                matchedBidOrders[owner].reserve_price = reserve_price;
+            }
+        }
+
+    }
+
+    function settleUserPosition(_smartmeter_address, _type,_volume,_timestamp) {
+        
+
+    }
+
+
+    function test_submit() {
+        submitAskOrder(20, 25);
+        submitAskOrder(23, 45);
+        submitAskOrder(24, 1);
+        submitAskOrder(30, 40);
+        submitAskOrder(30, 50);
+        submitBidOrder(999, 67);
+        submitBidOrder(10, 200);
+        submitBidOrder(30, 10);
+        getBidOrders();
+        getAskOrders();
+    }
+
+    function test_submitReserve() {
+        submitAskOrder(20, 100);
+        submitAskOrder(23, 100);
+        submitAskOrder(24, 700);
+        submitAskOrder(30, 800);
+        submitAskOrder(30, 500);
+        getAskOrders();
+    }
+
+    function test() {
+        test_submit();
+        determine_matching_price();
+        test_submitReserve();
+        determineReservePrice();
+    }
+
+    </script>
+</body>
+
+</html>

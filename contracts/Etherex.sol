@@ -35,7 +35,7 @@ contract Etherex {
     
      
 
-    Match[] matches;
+    Match[] matchinges;
 
     //1 for CA, 2 for smart meter
     mapping (address => uint8) identities;
@@ -71,7 +71,7 @@ contract Etherex {
     Wird bei jeder eingehenden Order ausgeführt. 
     Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
     inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
-    inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
+    inStateOne: Nachdem normale orders gematchinged wurden, können ask orders für die Reserve abgeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
     */
     function updateState() internal {
         if (inStateZero() && currState != 0){
@@ -79,7 +79,7 @@ contract Etherex {
             determineReservePrice();
         } else if (inStateOne() && currState != 1) {
             currState = 1;
-            matching();
+            determine_matching_price();
         } else {                                        // Zyklus beginnt von vorne
             startBlock = block.number;
             isMatchingDone = false;
@@ -145,17 +145,17 @@ contract Etherex {
     }
 
     /* 
-    Modifiers ignored for test purposes (onlyInState(0) onlyUsers())
+    Modifiers ignored for test purposes (payable, onlyInState(0) onlyUsers())
     author: Magnus
     */
-    function submitBidOrder(uint256 _price, uint256 _volume) payable {
+    function submitBidOrder(uint256 _price, uint256 _volume) {
         if (_volume <= 0 || _price <=0) throw;
-        uint256 toPay;
+        /*uint256 toPay;
         toPay = ((_volume*_price) * 10000000000000000);
         if (msg.value < toPay) throw;
         if (msg.value >= toPay){
             msg.sender.send(msg.value - toPay);
-        }
+        }*/
         save_order("BID",_volume,_price);
     } 
 
@@ -282,13 +282,58 @@ contract Etherex {
 
     } 
 
+    function test_submitASK() {
+        submitAskOrder(20,25);
+        submitAskOrder(23,45);
+        submitAskOrder(24,1);
+        submitAskOrder(30,40);
+        submitAskOrder(30,50);
+        submitBidOrder(999,67);
+        submitBidOrder(10,200);
+        submitBidOrder(30,10);
 
-    //TODO Magnus Has to be automatically called from the blockchain
-    //Currently without accumulating, does accumulating make sense?
-    function matching() internal{   
-        
+        //return determine_matching_price();
+    }
+ 
+      /* 
+    Modifiers ignored for test purposes (internal)
+    author: Magnus
+    */
+    uint256 public cumAskVol;
+    uint256 public cumBidVol;
+    bytes32[] public ask_orders;
+    bytes32[] public bid_orders;
 
-        
+    function determine_matching_price() returns(bytes32[] rv1,bytes32[] rv2){   
+        bool isMatched = false;
+        bytes32 id_iter_ask = lowest_ask_id;
+        bytes32 id_iter_bid = highest_bid_id;           
+        uint256 ask_price = orders[lowest_ask_id].price;
+        uint256 bid_price = orders[highest_bid_id].price;
+
+ 
+
+        while(!isMatched) {
+            while (orders[id_iter_ask].price == ask_price){
+                cumAskVol += orders[id_iter_ask].volume;
+                id_iter_ask = ask_orderbook[id_iter_ask].next_id;
+                ask_orders.push(id_iter_ask);
+            }
+            while (orders[id_iter_bid].price >= ask_price){     // TODO: die bid preise gehe ich jedes Mal von vorne durch. effizienter macehn
+                cumBidVol += orders[id_iter_bid].volume;
+                id_iter_bid = bid_orderbook[id_iter_bid].next_id;
+                bid_orders.push(id_iter_bid);
+            }
+            if (cumAskVol >= cumBidVol){
+                isMatched = true;
+            } else {
+                ask_price = orders[id_iter_ask].price;
+                id_iter_bid = highest_bid_id;
+                cumBidVol=0;
+                delete bid_orders;
+            }
+        }
+        return(ask_orders,bid_orders);
     }
 
     //Settlement function called by smart meter, the user is checked if he payed enough
@@ -304,16 +349,12 @@ contract Etherex {
     }
 
     //Constructor
-  function Etherex(address _certificateAuthority) {
-
-    identities[_certificateAuthority] = 1;
-    idCounter = 1;
-    startBlock = block.number; 
-    currState = 0;
-  }
-  
- 
-
+    function Etherex(address _certificateAuthority) {
+        identities[_certificateAuthority] = 1;
+        idCounter = 1;
+        startBlock = block.number; 
+        currState = 0;
+    }
 }
 
 
