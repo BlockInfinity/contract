@@ -2,12 +2,20 @@
 <html>
 
 <body>
+
+    <script type="text/javascript" src="hashtable.js"></script>
     <script>
     var lowest_ask_id;
     var highest_bid_id;
     var ask_orderbook = {};
     var bid_orderbook = {};
     var orders = {};
+
+    var smartMeterToUser = {};
+
+    var colleteral = {};
+
+
 
     function submitBidOrder(_maxprice, _volume) { // bid orders without _maxprice stated are simply orders with a very high _maxprice. 
         save_order("BID", _volume, _maxprice);
@@ -23,8 +31,10 @@
     }
 
 
-    var order_id = 0;
+    var order_id = 100;
+    var sm_address = 10;
     var owner_address = 0;
+
 
     function save_order(_typ, _volume, _price) {
         var Pointer = {
@@ -42,6 +52,10 @@
 
         owner_address++;
         order_id++;
+        sm_address++;
+
+        colleteral[owner_address] = 100000;
+        smartMeterToUser[sm_address] = owner_address;
 
         if (order_id in orders) return;
         orders[order_id] = Order;
@@ -129,16 +143,20 @@
     }
 
 
-    var matchedAskOrders = {};          // wird niemals gelöscht
-    var matchedBidOrders = {};          // wird niemals gelöscht
+    var matchedAskOrders = {}; // wird niemals gelöscht
+    var matchedBidOrders = {}; // wird niemals gelöscht
+
+    
     var cumAskVol = 0;
     var cumBidVol = 0;
     var matching_price;
 
-
+ 
+ // ich muss die matched orders erst nach owner dann nach periode abspeichern
     function determine_matching_price() {
-        var isMatched = false;
+
         matching_price = orders[lowest_ask_id].price;
+        var isMatched = false;
         var bid_price = orders[highest_bid_id].price;
         var id_iter_ask = lowest_ask_id;
         var id_iter_bid = highest_bid_id;
@@ -151,7 +169,8 @@
                 var next = ask_orderbook[id_iter_ask].next_id;
 
                 cumAskVol += volume;
-                matchedAskOrders[owner] = volume;
+                var time = Date.now();
+                matchedAskOrders = {owner:{time:volume}}
                 id_iter_ask = next;
 
                 if (id_iter_ask == undefined) {
@@ -184,20 +203,29 @@
 
         console.log("Price: " + matching_price + " | cumBidVol: " + cumBidVol + " | cumAskVol: " + cumAskVol + " and share: " + share);
 
-        for (owner in matchedAskOrders) {   // schon vorher im algorithmus definieren
-            matchedAskOrders[owner] = {ordered_Volume:matchedAskOrders[owner] * share,time:Date.now()};
+        for (owner in matchedAskOrders) { // schon vorher im algorithmus definieren
+            matchedAskOrders[owner] = {
+                ordered_Volume: matchedAskOrders[owner] * share,
+                time: Date.now()
+            };
         }
-         for (owner in matchedBidOrders) {
-            matchedBidOrders[owner] = {ordered_Volume:matchedBidOrders[owner],time:Date.now()};
+        for (owner in matchedBidOrders) {
+            matchedBidOrders[owner] = {
+                ordered_Volume: matchedBidOrders[owner],
+                time: Date.now()
+            };
         }
 
         orders = {}; // nach dem matching müssen alle übrig gebliebenen orders gelöscht werden.
     }
 
+
+
+
     var MIN_RESERVE_VOLUME = 1000;
-    var matchedReserveOrders = {};      
-    var reserve_price;
+    var matchedReserveOrders = {}; // wird niemals gelöscht  
     var cumAskReserveVol = 0;
+    var reserve_price;
 
     function determineReservePrice() {
         var isFound = false;
@@ -211,7 +239,10 @@
                 var next = ask_orderbook[id_iter_ask].next_id;
 
                 cumAskReserveVol += volume;
-                matchedReserveOrders[owner] = {ordered_Volume:volume,time:Date.now()};
+                matchedReserveOrders[owner] = {
+                    ordered_Volume: volume,
+                    time: Date.now()
+                };
                 id_iter_ask = next;
 
                 if (id_iter_ask == undefined) {
@@ -227,17 +258,49 @@
         }
         orders = {};
 
-        for (owner in matchedBidOrders) {
-            if (matchedBidOrders[owner].reserve_price == undefined){
+        for (owner in matchedBidOrders) { // nur die matched bid orders brauchen den reserve price.
+            if (matchedBidOrders[owner].reserve_price == undefined) {
                 matchedBidOrders[owner].reserve_price = reserve_price;
+            }
+        }
+
+        for (owner in matchedAskOrders) { // nur die matched bid orders brauchen den reserve price.
+            if (matchedAskOrders[owner].reserve_price == undefined) {
+                matchedAskOrders[owner].reserve_price = reserve_price;
             }
         }
 
     }
 
-    function settleUserPosition(_smartmeter_address, _type,_volume,_timestamp) {
-        
 
+
+
+    function settleUserPosition(_sm, _type, _volume, _timestamp) {
+        var user = smartMeterToUser[_sm];
+        var ordered;
+        var offered;
+        var diff;
+        var reservePrice;
+        if (_type == "CONSUMER") {
+            if (matchedBidOrders[user] != undefined) {
+                ordered = matchedBidOrders[user].ordered_Volume;
+                reservePrice = matchedBidOrders[user].reserve_price;
+                if (ordered < _volume) {
+                    diff = _volume - ordered;
+                    colleteral[user] -= (diff * reservePrice);
+                }
+            }
+        }
+        if (_type == "PRODUCER") {
+            if (matchedAskOrders[user] != undefined) {
+                offered = matchedAskOrders[user].ordered_Volume;
+                reservePrice = matchedAskOrders[user].reserve_price;
+                if (offered > _volume) {
+                    diff = offered - _volume;
+                    colleteral[user] -= (diff * reservePrice);
+                }
+            }
+        }
     }
 
 
@@ -269,7 +332,6 @@
         test_submitReserve();
         determineReservePrice();
     }
-
     </script>
 </body>
 
