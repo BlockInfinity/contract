@@ -169,7 +169,7 @@
         var id_iter_ask = lowest_ask_id;
         var id_iter_bid = highest_bid_id;
         period++;
-        
+
 
         while (!isMatched) {
             while (orders[id_iter_ask].price == matching_price) {
@@ -179,8 +179,10 @@
 
                 cumAskVol += volume;
 
-            
-                appendToDoubleMapping(askmapping,period,owner,{orderedVolume:volume});
+
+                appendToDoubleMapping(askmapping, period, owner, {
+                    orderedVolume: volume
+                });
 
 
                 id_iter_ask = next;
@@ -189,7 +191,7 @@
                     break;
                 }
             }
-            
+
             while (orders[id_iter_bid].price >= matching_price) { // TODO: die bid preise gehe ich jedes Mal von vorne durch. effizienter macehn
                 var volume = orders[id_iter_bid].volume;
                 var owner = orders[id_iter_bid].owner;
@@ -197,7 +199,9 @@
 
                 cumBidVol += volume;
 
-                appendToDoubleMapping(bidmapping,period,owner,{orderedVolume:volume});
+                appendToDoubleMapping(bidmapping, period, owner, {
+                    orderedVolume: volume
+                });
 
                 id_iter_bid = next;
 
@@ -256,12 +260,13 @@
     }
 
 
-    function createMapping(_key,_value){
+    function createMapping(_key, _value) {
         var mapping = {};
         mapping[_key] = _value;
 
     }
-    function createDoubleMapping(_key1,_key2,_value){
+
+    function createDoubleMapping(_key1, _key2, _value) {
         var mapping = {};
         var mapping2 = {};
 
@@ -271,8 +276,8 @@
         return mapping;
     }
 
-    function appendToDoubleMapping(_mapping,_key1,_key2,_value){
-        if (_mapping[_key1] == undefined){
+    function appendToDoubleMapping(_mapping, _key1, _key2, _value) {
+        if (_mapping[_key1] == undefined) {
             var mapping2 = {};
             mapping2[_key2] = _value;
             _mapping[_key1] = mapping2;
@@ -294,7 +299,7 @@
         var isFound = false;
         reserve_price = orders[lowest_ask_id].price;
         var id_iter_ask = lowest_ask_id;
-        
+
         while (!isFound) {
             while (orders[id_iter_ask].price == reserve_price) {
                 var volume = orders[id_iter_ask].volume;
@@ -302,7 +307,9 @@
                 var next = ask_orderbook[id_iter_ask].next_id;
 
                 cumAskReserveVol += volume;
-                appendToDoubleMapping(reservemapping,period,owner,{orderedVolume:volume});
+                appendToDoubleMapping(reservemapping, period, owner, {
+                    orderedVolume: volume
+                });
                 id_iter_ask = next;
 
                 if (id_iter_ask == undefined) {
@@ -322,15 +329,15 @@
 
             askmapping[period][owner].reservePrice = reserve_price;
 
-        }   
+        }
 
         for (owner in bidmapping[period]) {
 
             bidmapping[period][owner].reservePrice = reserve_price;
 
-        }   
+        }
+        owner_address = 0;
 
-    
 
 
 
@@ -401,48 +408,61 @@
     //     });
     // }
 
+    function getOrders() {
+
+        console.log("######################################");
+        console.log("Matched Ask Orders");
+        console.log("######################################");
+
+        for (period in askmapping) {
+            console.log("\n");
+            for (owner in askmapping[period]) {
+                console.log("Period: ", period," | Owner: ", owner, " | OrderedVol: ", askmapping[period][owner].orderedVolume, " | ReservePrice: ", askmapping[period][owner].reservePrice)
+            }
+        }
+
+
+        console.log("######################################");
+        console.log("Matched Bid Orders");
+        console.log("######################################");
+
+        for (period in bidmapping) {
+            console.log("\n");
+            for (owner in bidmapping[period]) {
+                console.log("Period: ", period," | Owner: ", owner, " | OrderedVol: ", bidmapping[period][owner].orderedVolume, " | ReservePrice: ", bidmapping[period][owner].reservePrice)
+            }
+        }
+    }
 
 
 
-    // TODO: umschreiben mit Berücksichtigung der  Periode
-    function settleUserPosition(_sm, _type, _volume, _period) {
-        var user = smartMeterToUser[_sm];
+    function settleUserPosition(_user, _type, _volume, _period) {
+        var user = _user;
         var ordered;
         var offered;
         var diff;
         var reservePrice;
-        if (_type == "CONSUMER") {
 
-        }
-
-
-
-
-        if (_type == "CONSUMER") {
-            if (matchedBidOrders.containsKey(user)) {
-                if (matchedBidOrders.get(user).contains(_timestamp)) {
-                    ordered = matchedBidOrders.get(user).get(_timestamp);
-                    reservePrice = matchedBidOrders.get(user).get();
-
-                }
-                ordered = matchedBidOrders[user].ordered_Volume;
-                reservePrice = matchedBidOrders[user].reserve_price;
-                if (ordered < _volume) {
-                    diff = _volume - ordered;
-                    colleteral[user] -= (diff * reservePrice);
-                }
+        if (_type == "CONSUMER" && bidmapping[_period][user] != undefined && bidmapping[_period] != undefined) {
+            ordered = bidmapping[_period][user].orderedVolume;
+            reservePrice = bidmapping[_period][user].reservePrice;
+            if (ordered < _volume) {
+                diff = _volume - ordered;
+                colleteral[user] -= (diff * reservePrice);
             }
+            bidmapping[_period][user] = {};
         }
-        if (_type == "PRODUCER") {
-            if (matchedAskOrders.containsKey(user)) {
-                offered = matchedAskOrders[user].ordered_Volume;
-                reservePrice = matchedAskOrders[user].reserve_price;
-                if (offered > _volume) {
-                    diff = offered - _volume;
-                    colleteral[user] -= (diff * reservePrice);
-                }
+
+        if (_type == "PRODUCER" && askmapping[_period][user] != undefined && askmapping[_period] != undefined) {
+            offered = askmapping[_period][user].orderedVolume;
+            reservePrice = askmapping[_period][user].reservePrice;
+            if (offered > _volume) {
+                diff = offered - _volume;
+                colleteral[user] -= (diff * reservePrice);
             }
+            askmapping[_period][user] = {};
         }
+    
     }
 
 
