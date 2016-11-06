@@ -331,7 +331,7 @@
         var diff;
         var reservePrice;
 
-        if (_type == "CONSUMER" && matchedBidOrderMapping[_period][user] != undefined && matchedBidOrderMapping[_period] != undefined) {
+        if (_type === "CONSUMER" && matchedBidOrderMapping[_period][user] != undefined && matchedBidOrderMapping[_period] != undefined) {
             ordered = matchedBidOrderMapping[_period][user].orderedVolume;
             reservePrice = matchedBidOrderMapping[_period][user].reservePrice;
             if (ordered < _volume) {
@@ -341,7 +341,7 @@
             matchedBidOrderMapping[_period][user] = {};
         }
 
-        if (_type == "PRODUCER" && matchedAskOrderMapping[_period][user] != undefined && matchedAskOrderMapping[_period] != undefined) {
+        if (_type === "PRODUCER" && matchedAskOrderMapping[_period][user] !== undefined && matchedAskOrderMapping[_period] != undefined) {  //TODO ==== !===
             offered = matchedAskOrderMapping[_period][user].orderedVolume;
             reservePrice = matchedAskOrderMapping[_period][user].reservePrice;
             if (offered > _volume) {
