@@ -212,26 +212,28 @@
         console.log("Price: " + matching_price + " | cumBidVol: " + cumBidVol + " | cumAskVol: " + cumAskVol + " and share: " + share);
 
 
-        // matchedAskOrders.each(function(owner) {
-        //     var vol = matchedAskOrders.get(owner).get(period);
-        //     matchedAskOrders.get(owner).put(period, vol * share);
-        // });
-
         for (owner in tmpMatchedAsk) {
             var x = parseInt(owner);
             var ht = new Hashtable();
-            matchedAskOrders.put(x, ht);
-            matchedAskOrders.get(x).put(period, tmpMatchedAsk[owner]*share);
-        }
+            var matchData = {
+                orderedVolume: tmpMatchedAsk[owner] * share
+            }
 
+            matchedAskOrders.put(x, ht);
+            matchedAskOrders.get(x).put(period, matchData);
+        }
 
 
 
         for (owner in tmpMatchedBid) {
             var x = parseInt(owner);
             var ht = new Hashtable();
+            var matchData = {
+                orderedVolume: tmpMatchedBid[owner]
+            }
+
             matchedBidOrders.put(x, ht);
-            matchedBidOrders.get(x).put(period, tmpMatchedBid[owner]);
+            matchedBidOrders.get(x).put(period, matchData);
         }
 
 
@@ -280,17 +282,46 @@
         for (owner in tmpmatchedReserveOrders) {
             var x = parseInt(owner);
             var ht = new Hashtable();
+            var matchData = {
+                orderedVolume: tmpmatchedReserveOrders[owner]
+            }
+
             matchedReserveOrders.put(x, ht);
-            matchedReserveOrders.get(x).put(period, tmpmatchedReserveOrders[owner]);
+            matchedReserveOrders.get(x).put(period, matchData);
         }
 
         // TODO: den preis im doppelten mapping niederschreiben 
 
-        // for (owner in matchedBidOrders) { // nur die matched bid orders brauchen den reserve price.
-        //     if (matchedBidOrders[owner].reserve_price == undefined) {
-        //         matchedBidOrders[owner].reserve_price = reserve_price;
-        //     }
-        // }
+        matchedAskOrders.each(function(key, value) {
+
+            if (value.get(period) != null) {
+                var orderedVolume = value.get(period).orderedVolume;
+                var matchData = {
+                    orderedVolume: value.get(period).orderedVolume,
+                    reservePrice: reserve_price
+                };
+
+                var orderedVolume = value.put(period, matchData);
+
+            }
+
+
+        })
+
+        matchedBidOrders.each(function(key, value) {
+
+            if (value.get(period) != null) {
+                var orderedVolume = value.get(period).orderedVolume;
+                var matchData = {
+                    orderedVolume: value.get(period).orderedVolume,
+                    reservePrice: reserve_price
+                };
+
+                var orderedVolume = value.put(period, matchData);
+
+            }
+        })
+
 
         // for (owner in matchedAskOrders) { // nur die matched bid orders brauchen den reserve price.
         //     if (matchedAskOrders[owner].reserve_price == undefined) {
@@ -299,6 +330,19 @@
         // }
 
     }
+
+    function test_getAskOrders() {
+        matchedAskOrders.each(function(key, value) {
+
+            console.log("Owner: " + key);
+
+            value.each(function(period, matchData) {
+                console.log("Period " + period + ":  OrderedVolume=" + matchData.orderedVolume + " | reservePrice= " + matchData.reservePrice);
+            });
+
+        });
+    }
+
 
 
 
@@ -311,7 +355,7 @@
         var reservePrice;
         if (_type == "CONSUMER") {
             if (matchedBidOrders.containsKey(user)) {
-                if (matchedBidOrders.get(user).contains(_timestamp)){
+                if (matchedBidOrders.get(user).contains(_timestamp)) {
                     ordered = matchedBidOrders.get(user).get(_timestamp);
                     reservePrice = matchedBidOrders.get(user).get();
 
