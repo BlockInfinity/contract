@@ -92,7 +92,7 @@
         function getAskOrders(uint256 market_id) constant returns (uint256[] rv1,uint256[] rv2){
           askQuotes = rv1;
           askAmounts = rv2;
-          bytes32 id_iter_ask = markets[market_id].lowest_ask_id;
+          bytes32 id_iter_ask = markets[market_id].lowe7st_ask_id;
           while (trades[id_iter_ask].amount != 0){
             askQuotes.push(trades[id_iter_ask].price);
             askAmounts.push(trades[id_iter_ask].amount);
