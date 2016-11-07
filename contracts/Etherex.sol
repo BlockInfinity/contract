@@ -319,7 +319,7 @@ contract Etherex {
                 id_iter_ask = ask_orderbook[id_iter_ask].next_id;
                 ask_orders.push(id_iter_ask);
             }
-            while (orders[id_iter_bid].price >= ask_price){     // TODO: die bid preise gehe ich jedes Mal von vorne durch. effizienter macehn
+            while (orders[id_iter_bid].price >= ask_price){     // TOD:O die bid preise gehe ich jedes Mal von vorne durch. effizienter macehn
                 cumBidVol += orders[id_iter_bid].volume;
                 id_iter_bid = bid_orderbook[id_iter_bid].next_id;
                 bid_orders.push(id_iter_bid);
