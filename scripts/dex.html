@@ -128,6 +128,7 @@
     // here matched order information gets saved based on the period and owner. analog to mapping(address => mapping (period => Data))
     var matchedAskOrderMapping = {};
     var matchedBidOrderMapping = {};
+    var matchingPriceMapping = {};
 
     // matches orders and saves the resulting information in the matchedAskOrderMapping and matchedBidOrderMapping
     // TODO: events rausballern für jeden user dessen  orders gematched wurden
@@ -202,12 +203,10 @@
         var share = cumBidVol / cumAskVol;
         for (owner in matchedAskOrderMapping[period]) {
             matchedAskOrderMapping[period][owner].offeredVolume = matchedAskOrderMapping[period][owner].offeredVolume * share;
-            matchedAskOrderMapping[period][owner].matchingPrice = matching_price;
-        }
-        for (owner in matchedBidOrderMapping[period]) {
-            matchedBidOrderMapping[period][owner].matchingPrice = matching_price;
         }
 
+
+        matchingPriceMapping[period] = matching_price;
 
         delete_tmpMatchingData();
 
@@ -283,23 +282,6 @@
 
         reservePriceMapping[period] = reserve_price;
 
-        for (owner in matchedAskOrderMapping[period]) {
-
-            matchedAskOrderMapping[period][owner].reservePrice = reserve_price;
-
-        }
-
-        for (owner in matchedBidOrderMapping[period]) {
-
-            matchedBidOrderMapping[period][owner].reservePrice = reserve_price;
-
-        }
-
-        for (owner in matchedReserveOrderMapping[period]) {
-
-            matchedReserveOrderMapping[period][owner].reservePrice = reserve_price;
-
-        }
 
         console.log("\n######################################");
         console.log("####### Reserve Matching Result ######");
@@ -322,7 +304,7 @@
         for (period in matchedAskOrderMapping) {
 
             for (owner in matchedAskOrderMapping[period]) {
-                console.log("Period: ", period, " | Owner: ", owner, " | Matching Price: ", matchedAskOrderMapping[period][owner].matchingPrice, " | ReservePrice: ", matchedAskOrderMapping[period][owner].reservePrice, " | OfferedVol: ", matchedAskOrderMapping[period][owner].offeredVolume)
+                console.log("Period: ", period, " | Owner: ", owner, " | OfferedVol: ", matchedAskOrderMapping[period][owner].offeredVolume)
             }
         }
 
@@ -334,7 +316,7 @@
         for (period in matchedBidOrderMapping) {
 
             for (owner in matchedBidOrderMapping[period]) {
-                console.log("Period: ", period, " | Owner: ", owner, " | Matching Price: ", matchedBidOrderMapping[period][owner].matchingPrice, " | ReservePrice: ", matchedBidOrderMapping[period][owner].reservePrice, " | OrderedVol: ", matchedBidOrderMapping[period][owner].orderedVolume)
+                console.log("Period: ", period, " | Owner: ", owner, " | OrderedVol: ", matchedBidOrderMapping[period][owner].orderedVolume)
             }
         }
     }
@@ -360,21 +342,25 @@
     function settle(_user, _type, _volume, _period) {
 
         if (matchedAskOrderMapping[_period] === undefined || matchedBidOrderMapping[_period] === undefined) throw "Period that should be settled does not exist";
-        if (_volume === 0) return; 
+        if (_volume === 0) return;
 
         var user = _user;
         var ordered = 0;
         var offered = 0;
         var diff;
-        var reservePrice;
-        var matchingPrice;
 
+        var reservePrice = reservePriceMapping[period];
+        var matchingPrice = matchingPriceMapping[period];
 
         if (_type === "PRODUCER") {
 
+
+            
+         
             if (matchedReserveOrderMapping[_period][user] !== undefined) {
-                reservePrice = matchedReserveOrderMapping[_period][user].reservePrice;
+
                 offered = matchedReserveOrderMapping[_period][user].offeredVolume;
+
                 if (_volume <= offered) {
                     colleteral[user] += _volume * reservePrice;
                 } else {
@@ -383,11 +369,13 @@
             }
 
             if (matchedAskOrderMapping[_period][user] !== undefined) {
+                
+
                 offered = matchedAskOrderMapping[_period][user].offeredVolume;
-                matchingPrice = matchedAskOrderMapping[_period][user].matchingPrice;
-                reservePrice = matchedAskOrderMapping[_period][user].reservePrice;
-                if (_volume < offered) {                                                // user hat zu wenig Strom eingespeist
-                    diff = offered - _volume;
+                diff = offered - _volume;
+
+
+                if (_volume < offered) { // user hat zu wenig Strom eingespeist
                     colleteral[user] -= (diff * reservePrice);
                 } else {
                     colleteral[user] += offered * matchingPrice;
@@ -400,12 +388,11 @@
 
         if (_type === "CONSUMER") {
 
+
             if (matchedBidOrderMapping[_period][user] !== undefined) {
                 ordered = matchedBidOrderMapping[_period][user].orderedVolume;
-                matchingPrice = matchedBidOrderMapping[_period][user].matchingPrice;
-                reservePrice = matchedBidOrderMapping[_period][user].reservePrice;
-                if (_volume > ordered) {                                                // user hat zu viel Strom bezogen
-                    diff = _volume - ordered;
+                diff = _volume - ordered;
+                if (_volume > ordered) { // user hat zu viel Strom bezogen
                     colleteral[user] -= (diff * reservePrice);
                     colleteral[user] -= (ordered * matchingPrice);
                 } else {
@@ -413,7 +400,7 @@
                 }
                 matchedBidOrderMapping[_period][user] = {};
             } else {
-                colleteral[user] -= (diff * reservePrice);
+                colleteral[user] -= (_volume * reservePrice);
             }
         }
 
@@ -436,9 +423,9 @@
             var erzeugung = Math.floor(Math.random() * 10) + 1;
             var price = 0;
             var owner = Math.floor(Math.random() * users) + 1;
-            
+
             price = Math.floor(Math.random() * 99) + 1;
-            if (submitAskOrder(price, erzeugung, owner)){
+            if (submitAskOrder(price, erzeugung, owner)) {
                 producers.push(owner);
             }
 
@@ -450,13 +437,13 @@
             var verbrauch = Math.floor(Math.random() * 10) + 1;
             var maxPrice = 0;
             var owner = Math.floor(Math.random() * users) + 1;
-            
+
             if (Math.random() > 0.3) {
                 maxPrice = Math.floor(Math.random() * 99) + 1;
             } else {
                 maxPrice = 9999
             }
-            if (submitBidOrder(maxPrice, verbrauch, owner)){
+            if (submitBidOrder(maxPrice, verbrauch, owner)) {
                 consumers.push(owner);
             }
         }
@@ -480,9 +467,9 @@
             var erzeugung = Math.floor(Math.random() * 300) + 1;
             var price = 0;
             var owner = Math.floor(Math.random() * users) + users;
-            
+
             price = Math.floor(Math.random() * 99) + 1;
-            if (submitReserveAsk(price, erzeugung, owner)){
+            if (submitReserveAsk(price, erzeugung, owner)) {
                 reserveProviders.push(owner);
             }
         }
@@ -493,22 +480,35 @@
         getAskOrders();
     }
 
+    // TODO: so settlen, dass consumed energy == produced energy ist. Die settlement infos von den reserve Leute müssen letztlich die differenz ausgleichen. In Summe müsse alle Werte wieder im schnitt 10000 ergeben 
+    var TotalConsumedEnergy = 0;
     function test_settle() {
+
+        var sumConsumed =0;
+        var sumProduced =0;
 
         for (user in consumers) {
             var vol = Math.floor(Math.random() * 10) + 1;
+            sumConsumed += vol;
             settle(consumers[user], "CONSUMER", vol, period);
-         }
+        }
 
         for (user in producers) {
             var vol = Math.floor(Math.random() * 10) + 1;
             settle(producers[user], "PRODUCER", vol, period);
         }
 
-        for (user in reserveProviders){
-            var vol = Math.floor(Math.random() * 10) + 1;
+        for (user in reserveProviders) {
+            var vol = Math.floor(Math.random() * 10) + 1;       // TODO: die dürfen nicht willkürlich strom produzieren.
+            sumProduced += vol;
             settle(reserveProviders[user], "PRODUCER", vol, period);
         }
+
+        // user who consumes what is left without emitting orders
+        // colleteral[10000] = 100000;
+        // settle(10000, "CONSUMER", sumProduced-sumConsumed, period);
+        // TotalConsumedEnergy = sumProduced;
+
         consumers = [];
         producers = [];
         reserveProviders = [];
@@ -523,6 +523,9 @@
         determineReservePrice();
         getOrders();
         test_settle();
+        console.log(colleteral);
+        console.log("Total Consumed Energy: "+TotalConsumedEnergy);
+
     }
     </script>
 </body>
