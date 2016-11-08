@@ -358,6 +358,7 @@ contract Etherex {
         
     }
 
+
     //Constructor
   function Etherex(address _certificateAuthority) {
 

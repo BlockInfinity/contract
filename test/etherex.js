@@ -2,17 +2,43 @@
 var NUM_ADDRESSES = 100;
 
 var eth = web3.eth;
+var bidOrders = {};
+var percentCertificateAuthorities = 0.01;
+var percentValidAccounts = 0.8
+
+var certificateAuthorities = [];
+var smartMeters = [];
+var users = [];
+var validAccounts = [];
+var invalidAccounts;
 
 
 contract('Etherex', function(accounts) {
   
   eth.defaultAccount = accounts[0];
+  certificateAuthorities = accounts.slice(0, percentCertificateAuthorities * accounts.length);
+  accounts = accounts.slice(percentCertificateAuthorities * accounts.length, accounts.length);
+  //80% valid smart meter-account pairs
+  validAccounts = accounts.slice(0, percentValidAccounts*accounts.length);
+  smartMeters = accounts.slice(0, accounts.length * 0.5);
+  users = accounts.slice(accounts.length * 0.5, accounts.length);
+
+
+  describe("Register certificate authorities", function() {
+
+    var etherex = Etherex.deployed();
+    for(var i = 0; i < certificateAuthorities.length; i++) {
+        etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]})
+    }
+
+  });
 
 
   it("Basic accounts balance test, every account has some ether", function(done) {
 
     for(var i = 0; i < accounts.length; i++) {
         assert(eth.getBalance(accounts[i]) > 0, "The account " + accounts[i] + " does not have a balance > 0");
+        break;
     }    
     done();
 
