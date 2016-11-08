@@ -9,35 +9,34 @@
     var bid_orderbook = {};
     var orders = {};
 
-    // gets reduced within the function settleUserPosition, once a user has not complied to his promised orders. 
+    // gets reduced within the function settle, once a user has not complied to his promised orders. 
     // gets also reduce, once users consume energy without having emitted orders at all 
     var colleteral = {};
 
 
 
     function submitBidOrder(_maxprice, _volume, _ownerid) { // bid orders without _maxprice stated are simply orders with a very high _maxprice. 
-        save_order("BID", _volume, _maxprice, _ownerid);
+        return save_order("BID", _volume, _maxprice, _ownerid);
     }
 
     function submitAskOrder(_price, _volume, _ownerid) {
-        save_order("ASK", _volume, _price, _ownerid);
+        return save_order("ASK", _volume, _price, _ownerid);
     }
 
 
     function submitReserveAsk(_price, _volume, _ownerid) { // wird im selben ask order book gespeichert, da  jenes beim matching geleert wird
-        save_order("ASK", _volume, _price, _ownerid);
+        return save_order("ASK", _volume, _price, _ownerid);
     }
 
 
     var order_id = 100;
-    var sm_address = 10;
     var tmpowners = {};
 
     // Saves orders based on the best price in the ask_orderbook or bid_orderbook. Both objects are implemented as linked list
     // Saves order data into the order mapping (order_id => Order). 
     function save_order(_typ, _volume, _price, _ownerid) {
 
-        if (_ownerid in tmpowners) return;
+        if (_ownerid in tmpowners) return false;
         tmpowners[_ownerid] = {};
 
         var Pointer = {
@@ -71,10 +70,10 @@
         var positionFound = false;
         var id_iter;
 
-        if (_typ == "ASK") {
+        if (_typ === "ASK") {
             ask_orderbook[order_id] = Pointer;
             ask_orderbook[order_id].id = order_id; // oder_id kann schon gesetzt werden und next_id muss im folgenden bestimmt werden
-            if (orders[lowest_ask_id] == undefined) { // Fall 1: es sind noch keine orders vorhanden
+            if (orders[lowest_ask_id] === undefined) { // Fall 1: es sind noch keine orders vorhanden
                 lowest_ask_id = order_id;
             } else if (_price < orders[lowest_ask_id].price) { // Fall 2: order wird vorne dran gehangen
                 ask_orderbook[order_id].next_id = lowest_ask_id;
@@ -82,7 +81,7 @@
             } else { // Fall 3: aorder wird zwischendrin platziert
                 id_iter = lowest_ask_id;
                 while (!positionFound) {
-                    if (ask_orderbook[id_iter].next_id == undefined) { // Fall 4: order wird ganz hinten dran gehangen
+                    if (ask_orderbook[id_iter].next_id === undefined) { // Fall 4: order wird ganz hinten dran gehangen
                         ask_orderbook[id_iter].next_id = order_id;
                         positionFound = true;
                     }
@@ -96,10 +95,10 @@
             }
         }
 
-        if (_typ == "BID") {
+        if (_typ === "BID") {
             bid_orderbook[order_id] = Pointer;
             bid_orderbook[order_id].id = order_id; // oder_id kann schon gesetzt werden und next_id muss im folgenden bestimmt werden
-            if (orders[highest_bid_id] == undefined) { // Fall 1: es sind noch keine orders vorhanden
+            if (orders[highest_bid_id] === undefined) { // Fall 1: es sind noch keine orders vorhanden
                 highest_bid_id = order_id;
             } else if (_price > orders[highest_bid_id].price) { // Fall 2: order wird vorne dran gehangen
                 bid_orderbook[order_id].next_id = highest_bid_id;
@@ -107,7 +106,7 @@
             } else {
                 id_iter = highest_bid_id;
                 while (!positionFound) {
-                    if (bid_orderbook[id_iter].next_id == undefined) { // Fall 3: order wird ganz hinten dran gehangen
+                    if (bid_orderbook[id_iter].next_id === undefined) { // Fall 3: order wird ganz hinten dran gehangen
                         bid_orderbook[id_iter].next_id = order_id;
                         positionFound = true;
                     }
@@ -120,6 +119,7 @@
                 }
             }
         }
+        return true;
     }
 
 
@@ -150,7 +150,7 @@
 
 
         while (!isMatched) {
-            while (orders[id_iter_ask].price == matching_price) {
+            while (orders[id_iter_ask].price === matching_price) {
                 var volume = orders[id_iter_ask].volume;
                 var owner = orders[id_iter_ask].owner;
 
@@ -184,7 +184,7 @@
 
                 id_iter_bid = next;
 
-                if (id_iter_bid == undefined) {
+                if (id_iter_bid === undefined) {
                     break;
                 }
             }
@@ -231,7 +231,7 @@
     // takes a _mapping object and appends a value to the key combination.
     // does also work with an empty object, that should become a mapping
     function appendToDoubleMapping(_mapping, _key1, _key2, _value) {
-        if (_mapping[_key1] == undefined) {
+        if (_mapping[_key1] === undefined) {
             var mapping2 = {};
             mapping2[_key2] = _value;
             _mapping[_key1] = mapping2;
@@ -242,9 +242,12 @@
 
 
     var MIN_RESERVE_VOLUME = 1000; // kWh needed to be secured against any shortage
-    var reservemapping = {};
+    var matchedReserveOrderMapping = {};
+
+    var reservePriceMapping = {};
 
     // TODO: events rausballern für jeden user dessen  orders gematched wurden
+
     function determineReservePrice() {
         var cumAskReserveVol = 0;
         var reserve_price;
@@ -253,12 +256,12 @@
         var id_iter_ask = lowest_ask_id;
 
         while (!isFound) {
-            while (orders[id_iter_ask].price == reserve_price) {
+            while (orders[id_iter_ask].price === reserve_price) {
                 var volume = orders[id_iter_ask].volume;
                 var owner = orders[id_iter_ask].owner;
 
                 cumAskReserveVol += volume;
-                appendToDoubleMapping(reservemapping, period, owner, {
+                appendToDoubleMapping(matchedReserveOrderMapping, period, owner, {
                     offeredVolume: volume
                 });
 
@@ -278,6 +281,8 @@
         }
         orders = {};
 
+        reservePriceMapping[period] = reserve_price;
+
         for (owner in matchedAskOrderMapping[period]) {
 
             matchedAskOrderMapping[period][owner].reservePrice = reserve_price;
@@ -290,9 +295,9 @@
 
         }
 
-        for (owner in reservemapping[period]) {
+        for (owner in matchedReserveOrderMapping[period]) {
 
-            reservemapping[period][owner].reservePrice = reserve_price;
+            matchedReserveOrderMapping[period][owner].reservePrice = reserve_price;
 
         }
 
@@ -352,48 +357,77 @@
 
 
     // TODO die Reserve Leute müssen noch mit berücksichtigt werden
-    function settleUserPosition(_user, _type, _volume, _period) {
+    function settle(_user, _type, _volume, _period) {
+
+        if (matchedAskOrderMapping[_period] === undefined || matchedBidOrderMapping[_period] === undefined) throw "Period that should be settled does not exist";
+        if (_volume === 0) return; 
+
         var user = _user;
         var ordered = 0;
         var offered = 0;
         var diff;
         var reservePrice;
+        var matchingPrice;
 
-        if (_user in reservemapping[_period]) {         // todo: if type === consumer könnte man eigentlich schon vorher abfragen
-            reservePrice = reservemapping[_period][user].reservePrice;
-            offered = reservemapping[_period][user].offeredVolume;
-            if (_volume <= offered) {
-                colleteral[user] += _volume * reservePrice;
-            } else {
-                colleteral[user] += offered;
-            }
-        } else {
-            if (_type === "CONSUMER" && matchedBidOrderMapping[_period][user] != undefined && matchedBidOrderMapping[_period] != undefined) {
-                ordered = matchedBidOrderMapping[_period][user].orderedVolume;
-                reservePrice = matchedBidOrderMapping[_period][user].reservePrice;
-                if (ordered < _volume) {
-                    diff = _volume - ordered;
-                    colleteral[user] -= (diff * reservePrice);
+
+        if (_type === "PRODUCER") {
+
+            if (matchedReserveOrderMapping[_period][user] !== undefined) {
+                reservePrice = matchedReserveOrderMapping[_period][user].reservePrice;
+                offered = matchedReserveOrderMapping[_period][user].offeredVolume;
+                if (_volume <= offered) {
+                    colleteral[user] += _volume * reservePrice;
+                } else {
+                    colleteral[user] += offered * reservePrice;
                 }
-                matchedBidOrderMapping[_period][user] = {};
             }
 
-            if (_type === "PRODUCER" && matchedAskOrderMapping[_period][user] !== undefined && matchedAskOrderMapping[_period] != undefined) { //TODO ==== !===
-                offered = matchedAskOrderMapping[_period][user].orderedVolume;
+            if (matchedAskOrderMapping[_period][user] !== undefined) {
+                offered = matchedAskOrderMapping[_period][user].offeredVolume;
+                matchingPrice = matchedAskOrderMapping[_period][user].matchingPrice;
                 reservePrice = matchedAskOrderMapping[_period][user].reservePrice;
-                if (offered > _volume) {
+                if (_volume < offered) {                                                // user hat zu wenig Strom eingespeist
                     diff = offered - _volume;
                     colleteral[user] -= (diff * reservePrice);
+                } else {
+                    colleteral[user] += offered * matchingPrice;
                 }
                 matchedAskOrderMapping[_period][user] = {};
             }
+
         }
+        // TODO: leute brücksichtigen, welche ohne orders abzugeben strom beziehen. Die müssne irgendwie an den reservprice dran kommen
+
+        if (_type === "CONSUMER") {
+
+            if (matchedBidOrderMapping[_period][user] !== undefined) {
+                ordered = matchedBidOrderMapping[_period][user].orderedVolume;
+                matchingPrice = matchedBidOrderMapping[_period][user].matchingPrice;
+                reservePrice = matchedBidOrderMapping[_period][user].reservePrice;
+                if (_volume > ordered) {                                                // user hat zu viel Strom bezogen
+                    diff = _volume - ordered;
+                    colleteral[user] -= (diff * reservePrice);
+                    colleteral[user] -= (ordered * matchingPrice);
+                } else {
+                    colleteral[user] -= (_volume * matchingPrice);
+                }
+                matchedBidOrderMapping[_period][user] = {};
+            } else {
+                colleteral[user] -= (diff * reservePrice);
+            }
+        }
+
 
     }
 
     // ########################################################################################################################################
     // ##############################################################  Test Area ##############################################################
     // ########################################################################################################################################
+
+    var consumers = [];
+    var producers = [];
+    var reserveProviders = [];
+
 
     function random_test(users) {
 
@@ -402,8 +436,11 @@
             var erzeugung = Math.floor(Math.random() * 10) + 1;
             var price = 0;
             var owner = Math.floor(Math.random() * users) + 1;
+            
             price = Math.floor(Math.random() * 99) + 1;
-            submitAskOrder(price, erzeugung, owner);
+            if (submitAskOrder(price, erzeugung, owner)){
+                producers.push(owner);
+            }
 
         }
 
@@ -413,12 +450,15 @@
             var verbrauch = Math.floor(Math.random() * 10) + 1;
             var maxPrice = 0;
             var owner = Math.floor(Math.random() * users) + 1;
+            
             if (Math.random() > 0.3) {
                 maxPrice = Math.floor(Math.random() * 99) + 1;
             } else {
                 maxPrice = 9999
             }
-            submitBidOrder(maxPrice, verbrauch, owner);
+            if (submitBidOrder(maxPrice, verbrauch, owner)){
+                consumers.push(owner);
+            }
         }
 
 
@@ -433,17 +473,18 @@
         getBidOrders();
     }
 
-    var consumers= [];
-    var producers = []; 
 
     function test_submitReserve(users) {
 
         for (i = 0; i < users; i++) {
             var erzeugung = Math.floor(Math.random() * 300) + 1;
             var price = 0;
-            var owner = Math.floor(Math.random() * users) + 1;
+            var owner = Math.floor(Math.random() * users) + users;
+            
             price = Math.floor(Math.random() * 99) + 1;
-            submitAskOrder(price, erzeugung, owner);
+            if (submitReserveAsk(price, erzeugung, owner)){
+                reserveProviders.push(owner);
+            }
         }
 
         console.log("\n######################################");
@@ -452,14 +493,26 @@
         getAskOrders();
     }
 
-    function test_settleUserPositions(){
+    function test_settle() {
 
         for (user in consumers) {
-            
-        }
-        for (user in producers) {
+            var vol = Math.floor(Math.random() * 10) + 1;
+            settle(consumers[user], "CONSUMER", vol, period);
+         }
 
+        for (user in producers) {
+            var vol = Math.floor(Math.random() * 10) + 1;
+            settle(producers[user], "PRODUCER", vol, period);
         }
+
+        for (user in reserveProviders){
+            var vol = Math.floor(Math.random() * 10) + 1;
+            settle(reserveProviders[user], "PRODUCER", vol, period);
+        }
+        consumers = [];
+        producers = [];
+        reserveProviders = [];
+
 
     }
 
@@ -469,8 +522,8 @@
         test_submitReserve(_users);
         determineReservePrice();
         getOrders();
+        test_settle();
     }
-
     </script>
 </body>
 
