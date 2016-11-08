@@ -1,26 +1,25 @@
 # Todo
 
-settlement Funktion 
+1. settlement Funktion 
 
-Pseudo Input generieren in der test_settleUserPositions.
+2. Pseudo Input generieren in der test_settleUserPositions.
 
-Vollständiger Test vom js code mit simulierten Block-Zeitintervallen.
+3. Vollständiger Test vom js code mit simulierten Block-Zeitintervallen.
 
-Testfunktionen für den js code schreiben. 
+4. Testfunktionen für den js code schreiben. 
 
-Überführung in solidity. 
+5. Überführung in solidity. 
 
-Mit dem fehlerfreien! js code den solidity contract prüfen.
+6. Mit dem fehlerfreien! js code den solidity contract prüfen.
 
-Programm mit echten Rohdaten speisen und analysieren => Abschlusspräsentation
-
-
-# Konzept:
-
-http://prezi.com/dk4hnl5ocrhe/?utm_campaign=share&utm_medium=copy&rc=ex0share
+7. Programm mit echten Rohdaten speisen und analysieren => Abschlusspräsentation
 
 
-# Links
+# Background
+
+http://www.ponton.de/downloads/mm/Einsatzpotenziale-der-Blockchain-im-Energiehandel_Merz_2016.pdf
+
+# Links for development
 
 
 https://ethereum.github.io/browser-solidity/#version=soljson-latest.js
