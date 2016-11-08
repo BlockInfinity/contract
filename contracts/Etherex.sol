@@ -76,26 +76,26 @@ contract Etherex {
 
     // modifiers
     modifier onlySmartMeters(){
-        if (identities[msg.sender] != 2) throw;
+        //if (identities[msg.sender] != 2) throw;
         _;
     }
     modifier onlyUsers(){
-        if (smartMeterToUser[msg.sender] == 0) throw;
+        //if (smartMeterToUser[msg.sender] == 0) throw;
         _;
     }
     modifier onlyCertificateAuthorities(){
-        if (identities[msg.sender] != 1) throw;
+        //if (identities[msg.sender] != 1) throw;
         _;
     }
     
     modifier onlyInState(uint8 _state) {
         updateState();
-        if(_state != currState) throw;
+        //if(_state != currState) throw;
         _;
     }
 
     modifier onlyBigProducers(uint256 _volume) {
-        if (_volume <  bigProducerMinVolume) throw;
+        //if (_volume <  bigProducerMinVolume) throw;
         _;
     }
 
@@ -148,7 +148,7 @@ contract Etherex {
 
     
     // Register Functions
-    function registerSmartmeter(address _sm, address _user) onlyCertificateAuthorities(){
+    function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities(){
       identities[_sm] = 2;
       smartMeterToUser[_sm] = _user; 
     }
@@ -243,10 +243,6 @@ contract Etherex {
             minReserveAsk = reserveAsk;
         }
 
-    }
-    
-    function checkMatches() returns(uint256){
-        return matches.length;
     }
 
 
