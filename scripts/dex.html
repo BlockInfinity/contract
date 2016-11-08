@@ -359,7 +359,7 @@
         var diff;
         var reservePrice;
 
-        if (_user in reservemapping[_period]) {
+        if (_user in reservemapping[_period]) {         // todo: if type === consumer könnte man eigentlich schon vorher abfragen
             reservePrice = reservemapping[_period][user].reservePrice;
             offered = reservemapping[_period][user].offeredVolume;
             if (_volume <= offered) {
@@ -391,6 +391,9 @@
 
     }
 
+    // ########################################################################################################################################
+    // ##############################################################  Test Area ##############################################################
+    // ########################################################################################################################################
 
     function random_test(users) {
 
@@ -400,7 +403,6 @@
             var price = 0;
             var owner = Math.floor(Math.random() * users) + 1;
             price = Math.floor(Math.random() * 99) + 1;
-
             submitAskOrder(price, erzeugung, owner);
 
         }
@@ -431,6 +433,8 @@
         getBidOrders();
     }
 
+    var consumers= [];
+    var producers = []; 
 
     function test_submitReserve(users) {
 
@@ -439,7 +443,6 @@
             var price = 0;
             var owner = Math.floor(Math.random() * users) + 1;
             price = Math.floor(Math.random() * 99) + 1;
-
             submitAskOrder(price, erzeugung, owner);
         }
 
@@ -449,6 +452,17 @@
         getAskOrders();
     }
 
+    function test_settleUserPositions(){
+
+        for (user in consumers) {
+            
+        }
+        for (user in producers) {
+
+        }
+
+    }
+
     function test(_users) {
         random_test(_users)
         match();
@@ -456,6 +470,7 @@
         determineReservePrice();
         getOrders();
     }
+
     </script>
 </body>
 
