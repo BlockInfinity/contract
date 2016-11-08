@@ -15,7 +15,7 @@
 7. Programm mit echten Rohdaten speisen und analysieren => Abschlusspräsentation
 
 
-# Background:
+# Background
 
 http://www.ponton.de/downloads/mm/Einsatzpotenziale-der-Blockchain-im-Energiehandel_Merz_2016.pdf
 
