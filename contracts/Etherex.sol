@@ -1,9 +1,6 @@
 pragma solidity ^0.4.2;
-
-
-/*
-
-Global TODOS:
+/*   
+ TODOS:
 
 Modifiers for time dependant operations.
 Communication with smart meter.
@@ -20,8 +17,6 @@ contract Etherex {
       uint256 timestamp;
     }
     
-    //state times in minutes
-    uint8[] states = [0,1,2,3];
     
     struct Order {
                 
@@ -36,18 +31,23 @@ contract Etherex {
     
     uint8 public currState;
     uint256 public startBlock;
-    bool isMatchingDone;
+    bool isMatchingDone = false;
 
     uint256 idCounter;
     
     mapping (address => address) smartMeterToUser;
     
-
+    Order minAsk = Order(0,0,0,0,0);
+    Order minBid = Order(0,0,0,0,0);
+    Order minReserveAsk = Order(0,0,0,0,0);
+    Order[] flexBids;
+    uint256 flexBidVolume = 0;
+    uint256 bigProducerMinVolume = 100000;
     //Additional array for flex bids, more optimal
     
      
 
-    Match[] matchinges;
+    Match[] matches;
 
     //1 for CA, 2 for smart meter
     mapping (address => uint8) identities;
@@ -94,13 +94,18 @@ contract Etherex {
         _;
     }
 
+    modifier onlyBigProducers(uint256 _volume) {
+        if (_volume <  bigProducerMinVolume) throw;
+        _;
+    }
+
 
  
     /*
     Wird bei jeder eingehenden Order ausgeführt. 
     Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
     inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
-    inStateOne: Nachdem normale orders gematchinged wurden, können ask orders für die Reserve abgeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
+    inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
     */
     function updateState() internal {
         if (inStateZero() && currState != 0){
@@ -108,7 +113,7 @@ contract Etherex {
             determineReservePrice();
         } else if (inStateOne() && currState != 1) {
             currState = 1;
-            determine_matching_price();
+            matching();
         } else {                                        // Zyklus beginnt von vorne
             startBlock = block.number;
             isMatchingDone = false;
@@ -116,8 +121,12 @@ contract Etherex {
             TODO: 
             Zu Beginn der Periode müssten alle Orders gelöscht werden. Können wir statt idToOrder mapping ein array benutzen? Das könnte man dann mit delete auf null setzen.      
             */
-            lowest_ask_id=0;
-            highest_bid_id=0;
+            delete flexBids;
+            idCounter=1;
+            minAsk.id=0;
+            minAsk.nex=0;
+            minBid.id=0;
+            minBid.nex=0;
         }             
     }
  
@@ -144,19 +153,9 @@ contract Etherex {
       smartMeterToUser[_sm] = _user; 
     }
     
-    function countBids() returns(uint256) {
-        uint256 counter = 0;
-        Order memory curr = minAsk;
-        while(curr.id != 0) {
-            counter++;
-            curr = n(curr);
-        }
-        return counter;
-    }
-
     //If this is called, just put it on the beginning on the list
     function submitFlexBid(uint256 _volume) {
-        Order bid;
+        Order memory bid;
         bid.volume = _volume;
         flexBidVolume +=_volume;
         flexBids.push(bid);
@@ -164,11 +163,7 @@ contract Etherex {
 
     function submitBid(uint256 _price, uint256 _volume)  {
         
-        Order bid;
-        bid.volume = _volume;
-        bid.id = idCounter++;
-        bid.price = _price;
-        bid.owner = msg.sender;
+        Order memory bid = Order(idCounter++, 0, msg.sender, _volume, _price);
         
         //Iterate over list till same price encountered
         Order memory curr = minBid;
@@ -196,11 +191,7 @@ contract Etherex {
     //Calculate min ask to satisfy flexible bids on the way?
     function submitAsk(uint256 _price, uint256 _volume) {
         
-        Order ask;
-        ask.volume = _volume;
-        ask.id = idCounter++;
-        ask.price = _price;
-        ask.owner = msg.sender;
+        Order memory ask = Order(idCounter++, 0, msg.sender, _volume, _price);
         
         if(minAsk.id == 0){
             minAsk = ask;
@@ -225,16 +216,11 @@ contract Etherex {
     } 
     
     
-
     //Producer can submit ask if he is able to supply two times the average needed volume of
     //electricity
     function submitReserveAsk(uint256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyBigProducers(_volume){
 
-        Order reserveAsk;
-        reserveAsk.volume = _volume;
-        reserveAsk.id = idCounter++;
-        reserveAsk.price = _price;
-        reserveAsk.owner = msg.sender;
+        Order memory reserveAsk = Order(idCounter++, 0, msg.sender, _volume, _price);
         
         //Iterate over list till same price encountered
         Order memory curr = minReserveAsk;
@@ -263,34 +249,6 @@ contract Etherex {
         return matches.length;
     }
 
-    function test_submitASK() {
-        submitAskOrder(20,25);
-        submitAskOrder(23,45);
-        submitAskOrder(24,1);
-        submitAskOrder(30,40);
-        submitAskOrder(30,50);
-        submitBidOrder(999,67);
-        submitBidOrder(10,200);
-        submitBidOrder(30,10);
-
-        //return determine_matching_price();
-    }
- 
-      /* 
-    Modifiers ignored for test purposes (internal)
-    author: Magnus
-    */
-    uint256 public cumAskVol;
-    uint256 public cumBidVol;
-    bytes32[] public ask_orders;
-    bytes32[] public bid_orders;
-
-    function determine_matching_price() returns(bytes32[] rv1,bytes32[] rv2){   
-        bool isMatched = false;
-        bytes32 id_iter_ask = lowest_ask_id;
-        bytes32 id_iter_bid = highest_bid_id;           
-        uint256 ask_price = orders[lowest_ask_id].price;
-        uint256 bid_price = orders[highest_bid_id].price;
 
     //TODO Magnus Has to be automatically called from the blockchain
     //Currently without accumulating, does accumulating make sense?
@@ -331,19 +289,39 @@ contract Etherex {
                 currAsk=n(currAsk);
                 delete prevAsk; 
             }
-            while (orders[id_iter_bid].price >= ask_price){     // TOD:O die bid preise gehe ich jedes Mal von vorne durch. effizienter macehn
-                cumBidVol += orders[id_iter_bid].volume;
-                id_iter_bid = bid_orderbook[id_iter_bid].next_id;
-                bid_orders.push(id_iter_bid);
-            }
-            if (cumAskVol >= cumBidVol){
-                isMatched = true;
+        }
+        //Matching of bids and asks with fixed price
+        //Iterate till you come to the end of ask or bid lists
+        while(currAsk.id != 0 && currBid.id != 0) {
+
+            //Round robin so that everyone gets something?
+            if(currAsk.volume > currBid.volume) {
+                //Delete the bid
+                matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner, block.timestamp));
+                currAsk.volume -= currBid.volume;
+                prevBid = currBid;
+                currBid=n(currBid);
+                delete prevBid;
+
+            }else if(currAsk.volume < currBid.volume) {
+                //Delete the ask
+                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
+                currBid.volume -= currAsk.volume;
+                prevAsk = currAsk;
+                currAsk=n(currAsk);
+                delete prevAsk; 
             } else {
-                ask_price = orders[id_iter_ask].price;
-                id_iter_bid = highest_bid_id;
-                cumBidVol=0;
-                delete bid_orders;
+                //Delete both bid and ask
+                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
+                prevAsk = currAsk;
+                currAsk=n(currAsk);
+                delete prevAsk;
+                prevBid = currBid;
+                currBid=n(currBid);
+                delete prevBid;
             }
+
+
         }
         minAsk.id = 0;
         minBid.id = 0;
@@ -355,8 +333,27 @@ contract Etherex {
 
     //Settlement function called by smart meter, the user is checked if he payed enough
     //for electricity
-    function settleUserPosition(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters(){
+    function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters(){
 
+        uint256 payedForVolume = 0;
+        address consumer = smartMeterToUser[msg.sender];
+        for(uint i=0; i < matches.length; i++) {
+            if(matches[i].bidOwner == consumer) {
+                payedForVolume+= matches[i].volume;
+                //Check if the consumer has enough to pay, then pay
+                if(matches[i].bidOwner.balance >= matches[i].price * matches[i].volume){
+                    //Send amount
+                } else {
+                    throw;
+                }
+            }
+        }
+
+        //If he did not buy enough electricity
+        if(payedForVolume < _consumedVolume) {
+            //Pay for remaining electricity
+            uint256 price = determineReservePrice();
+        }
 
     }
 
@@ -366,13 +363,14 @@ contract Etherex {
     }
 
     //Constructor
-    function Etherex(address _certificateAuthority) {
-        identities[_certificateAuthority] = 1;
-        idCounter = 1;
-        startBlock = block.number; 
-        currState = 0;
-    }
+  function Etherex(address _certificateAuthority) {
+
+    identities[_certificateAuthority] = 1;
+    idCounter = 1;
+    startBlock = block.number; 
+    currState = 0;
+  }
+  
+ 
+
 }
-
-
-   
