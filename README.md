@@ -15,12 +15,11 @@
 7. Programm mit echten Rohdaten speisen und analysieren => Abschlusspräsentation
 
 
-# Konzept:
+# Background:
 
-http://prezi.com/dk4hnl5ocrhe/?utm_campaign=share&utm_medium=copy&rc=ex0share
+http://www.ponton.de/downloads/mm/Einsatzpotenziale-der-Blockchain-im-Energiehandel_Merz_2016.pdf
 
-
-# Links
+# Links for development
 
 
 https://ethereum.github.io/browser-solidity/#version=soljson-latest.js
