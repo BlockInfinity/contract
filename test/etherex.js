@@ -1,5 +1,24 @@
+//Initialization
+var NUM_ADDRESSES = 100;
+
+var eth = web3.eth;
+
+
 contract('Etherex', function(accounts) {
-    
+  
+  eth.defaultAccount = accounts[0];
+
+
+  it("Basic accounts balance test, every account has some ether", function(done) {
+
+    for(var i = 0; i < accounts.length; i++) {
+        assert(eth.getBalance(accounts[i]) > 0, "The account " + accounts[i] + " does not have a balance > 0");
+    }    
+    done();
+
+  });
+
+
 
   it("The contract should be deployed to the blockchain", function(done) {
     //Initialize the contract
