@@ -37,8 +37,8 @@ contract Etherex {
     
     mapping (address => address) smartMeterToUser;
     
-    Order minAsk = Order(0,0,0,0,0);
-    Order minBid = Order(0,0,0,0,0);
+    Order public minAsk = Order(0,0,0,0,0);
+    Order public minBid = Order(0,0,0,0,0);
     Order minReserveAsk = Order(0,0,0,0,0);
     Order[] flexBids;
     uint256 flexBidVolume = 0;
@@ -76,26 +76,26 @@ contract Etherex {
 
     // modifiers
     modifier onlySmartMeters(){
-        //if (identities[msg.sender] != 2) throw;
+        if (identities[msg.sender] != 2) throw;
         _;
     }
     modifier onlyUsers(){
-        //if (smartMeterToUser[msg.sender] == 0) throw;
+        if (smartMeterToUser[msg.sender] == 0) throw;
         _;
     }
     modifier onlyCertificateAuthorities(){
-        //if (identities[msg.sender] != 1) throw;
+        if (identities[msg.sender] != 1) throw;
         _;
     }
     
     modifier onlyInState(uint8 _state) {
         updateState();
-        //if(_state != currState) throw;
+        if(_state != currState) throw;
         _;
     }
 
     modifier onlyBigProducers(uint256 _volume) {
-        //if (_volume <  bigProducerMinVolume) throw;
+        if (_volume <  bigProducerMinVolume) throw;
         _;
     }
 
@@ -356,6 +356,10 @@ contract Etherex {
     //TODO Magnus time controlled
     function determineReservePrice() returns (uint256){
         
+    }
+
+    function registerCertificateAuthority(address _ca) {
+        identities[_ca] = 1;
     }
 
 

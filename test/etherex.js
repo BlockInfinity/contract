@@ -15,6 +15,7 @@ var invalidAccounts;
 
 contract('Etherex', function(accounts) {
   
+  //Initialization of accounts
   eth.defaultAccount = accounts[0];
   certificateAuthorities = accounts.slice(0, percentCertificateAuthorities * accounts.length);
   accounts = accounts.slice(percentCertificateAuthorities * accounts.length, accounts.length);
@@ -23,18 +24,52 @@ contract('Etherex', function(accounts) {
   smartMeters = accounts.slice(0, accounts.length * 0.5);
   users = accounts.slice(accounts.length * 0.5, accounts.length);
 
+ it("The contract should be deployed to the blockchain", function(done) {
+    //Initialize the contract
+    var etherex = Etherex.deployed();
+    assert(etherex != undefined);
+    done();
+  });
 
-  describe("Register certificate authorities", function() {
+
+  it("Register certificate authorities", function(done) {
 
     var etherex = Etherex.deployed();
+
     for(var i = 0; i < certificateAuthorities.length; i++) {
         etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]})
     }
 
+    done();
+
   });
 
 
-  it("Basic accounts balance test, every account has some ether", function(done) {
+    it("Register smart meters with users (valid)", function(done) {
+
+        //Certificate authority registers
+        var etherex = Etherex.deployed();
+        for(var i = 0; i < smartMeters.length;i++) {
+            etherex.registerSmartMeter(smartMeters[i], users[i], {from: certificateAuthorities[0]});
+        }
+        done();
+    }); 
+
+
+    it("Register smart meters with users (invalid), this should not be able to happen", function(done) {
+
+        //The regitrator is not a CA
+        var etherex = Etherex.deployed();
+        for(var i = 0; i < 4;i++) {
+            //Fail test when a submit succeeds
+            etherex.registerSmartMeter(smartMeters[i], users[i], {from: users[i]}).
+            then(function() {assert(false)}).catch(function(err){});
+        }
+        done();
+  }); 
+
+
+  it.skip("Basic accounts balance test, every account has some ether", function(done) {
 
     for(var i = 0; i < accounts.length; i++) {
         assert(eth.getBalance(accounts[i]) > 0, "The account " + accounts[i] + " does not have a balance > 0");
@@ -44,47 +79,61 @@ contract('Etherex', function(accounts) {
 
   });
 
-
-
-  it("The contract should be deployed to the blockchain", function(done) {
-    //Initialize the contract
+  it("#submitBid access test", function(done) {
     var etherex = Etherex.deployed();
-    assert.isTrue(etherex != undefined);
+
+    etherex.submitBid(10,12,{from:users[0]}).then(function(){
+        //It is ok
+        assert(true);
+    }).catch(function(err) {
+        assert(false, "A valid user was not able to submit.")
+    });
+
+    etherex.submitBid(10,12,{from:smartMeters[0]}).then(function(){
+        //It is not ok
+        assert(false, "A smart meter was able to submit.")
+    }).catch(function(err) {
+        assert(true);
+    });
+
+    //TODO adding random bids from random users
     done();
   });
 
 
-  describe("#submitBid", function() {
+  it("#submitBid storage check", function(done) {
+    var etherex = Etherex.deployed();
+    //TODO adding random bids from random users
+    console.log(etherex.minBid);
+    done();
+  });
 
-    it("User should be able to submit", function(done){
+  it("#submitAsk access test", function(done) {
 
-        done();
+    var etherex = Etherex.deployed();
+    etherex.submitAsk(10,12,{from:users[0]}).then(function(){
+        //It is ok
+        assert(true);
+    }).catch(function(err) {
+        assert(false, "A valid user was not able to submit.")
+    });
 
-    })
+    etherex.submitAsk(10,12,{from:smartMeters[0]}).then(function(){
+        //It is not ok
+        assert(false, "A smart meter was able to submit.")
+    }).catch(function(err) {
+        assert(true);
+    });
+
+    //TODO adding random asks from random users
+    done();
 
   });
 
-
-  describe("#submitAsk", function() {
-
-    it("User should be able to submit", function(done){
-
-        done();
-
-    })
+  it.skip("#submitReserveAsk access test", function(done) {
 
   });
 
-
-describe("#submitReserveAsk", function() {
-
-    it("User should be able to submit", function(done){
-
-        done();
-
-    })
-
-  });
 
 
 describe("#matching", function() {
