@@ -56,7 +56,7 @@
 
 
 
-        colleteral[_ownerid] = 100000;
+        colleteral[_ownerid] = 0;
 
         if (order_id in orders) return;
 
@@ -342,6 +342,10 @@
     function settle(_user, _type, _volume, _period) {
 
         if (matchedAskOrderMapping[_period] === undefined || matchedBidOrderMapping[_period] === undefined) throw "Period that should be settled does not exist";
+
+        var success = false;
+
+
         if (_volume === 0) return;
 
         var user = _user;
@@ -354,10 +358,11 @@
 
         if (_type === "PRODUCER") {
 
-
-            
-         
             if (matchedReserveOrderMapping[_period][user] !== undefined) {
+                if (matchedReserveOrderMapping[_period][user].offeredVolume === undefined) {
+                    console.warn("Position already settled.");
+                    return false;
+                }
 
                 offered = matchedReserveOrderMapping[_period][user].offeredVolume;
 
@@ -366,10 +371,16 @@
                 } else {
                     colleteral[user] += offered * reservePrice;
                 }
+                matchedReserveOrderMapping[_period][user] = {};
+                //console.log("(Settlement Reserve Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+reservePrice);
+                seccess = true;
             }
 
             if (matchedAskOrderMapping[_period][user] !== undefined) {
-                
+                if (matchedAskOrderMapping[_period][user].offeredVolume === undefined) {
+                    console.warn("Position already settled.");
+                    return false;
+                }
 
                 offered = matchedAskOrderMapping[_period][user].offeredVolume;
                 diff = offered - _volume;
@@ -377,10 +388,13 @@
 
                 if (_volume < offered) { // user hat zu wenig Strom eingespeist
                     colleteral[user] -= (diff * reservePrice);
+                    colleteral[user] += _volume * matchingPrice;
                 } else {
                     colleteral[user] += offered * matchingPrice;
                 }
                 matchedAskOrderMapping[_period][user] = {};
+                //console.log("(Settlement Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+matchingPrice);
+                success = true;
             }
 
         }
@@ -390,22 +404,31 @@
 
 
             if (matchedBidOrderMapping[_period][user] !== undefined) {
+                if (matchedBidOrderMapping[_period][user].orderedVolume === undefined) {
+                    console.warn("Position already settled.");
+                    return false;
+                }
+
                 ordered = matchedBidOrderMapping[_period][user].orderedVolume;
                 diff = _volume - ordered;
                 if (_volume > ordered) { // user hat zu viel Strom bezogen
                     colleteral[user] -= (diff * reservePrice);
                     colleteral[user] -= (ordered * matchingPrice);
                 } else {
-                    colleteral[user] -= (_volume * matchingPrice);
+                    colleteral[user] -= (ordered * matchingPrice);
                 }
                 matchedBidOrderMapping[_period][user] = {};
+                success = true;
             } else {
                 colleteral[user] -= (_volume * reservePrice);
             }
         }
 
-
+        return success;
     }
+
+
+
 
     // ########################################################################################################################################
     // ##############################################################  Test Area ##############################################################
@@ -480,34 +503,44 @@
         getAskOrders();
     }
 
-    // TODO: so settlen, dass consumed energy == produced energy ist. Die settlement infos von den reserve Leute müssen letztlich die differenz ausgleichen. In Summe müsse alle Werte wieder im schnitt 10000 ergeben 
+    // TODO: reserve settle orders testen einzelnd und dann systematisch. ask bid order emitents verhalten sich ehrlich und die differenz wird von reserve übernommen, dann  sollte alles im schnitt null sein ???!?!!?
+    var sumConsumed = 0;
+    var sumProduced = 0;
+    var sumReserved = 0;
+
     var TotalConsumedEnergy = 0;
+
+
+
     function test_settle() {
 
-        var sumConsumed =0;
-        var sumProduced =0;
-
+        sumConsumed = 0;
+        sumProduced = 0;
+        sumReserved = 0;
+        
         for (user in consumers) {
-            var vol = Math.floor(Math.random() * 10) + 1;
+            var vol = Math.floor(Math.random() * 40) + 1;
             sumConsumed += vol;
             settle(consumers[user], "CONSUMER", vol, period);
         }
 
         for (user in producers) {
             var vol = Math.floor(Math.random() * 10) + 1;
+            sumProduced += vol;
             settle(producers[user], "PRODUCER", vol, period);
         }
 
         for (user in reserveProviders) {
-            var vol = Math.floor(Math.random() * 10) + 1;       // TODO: die dürfen nicht willkürlich strom produzieren.
-            sumProduced += vol;
+            var vol = Math.floor(Math.random() * 10) + 1; 
+            sumReserved += vol;
+            if (sumReserved > (sumConsumed - sumProduced)) {
+                sumReserved -= vol;
+                vol = (sumConsumed - sumProduced) - sumReserved;
+                sumReserved += vol;
+                return;
+            }
             settle(reserveProviders[user], "PRODUCER", vol, period);
         }
-
-        // user who consumes what is left without emitting orders
-        // colleteral[10000] = 100000;
-        // settle(10000, "CONSUMER", sumProduced-sumConsumed, period);
-        // TotalConsumedEnergy = sumProduced;
 
         consumers = [];
         producers = [];
@@ -515,6 +548,7 @@
 
 
     }
+
 
     function test(_users) {
         random_test(_users)
@@ -524,7 +558,19 @@
         getOrders();
         test_settle();
         console.log(colleteral);
-        console.log("Total Consumed Energy: "+TotalConsumedEnergy);
+        console.log("Total Consumed Energy: " + TotalConsumedEnergy);
+        console.log("Consumed Energy: " + sumConsumed);
+        console.log("Produced Energy: " + sumProduced);
+        console.log("Regulated Energy: " + sumReserved);
+        console.log("Sum(produced,regulated): " + (sumReserved + sumProduced));
+
+        console.log("Sum Consumed + Reserved: "+(sumProduced+sumReserved));
+        sum = 0;
+        for (c in colleteral) {
+            sum += colleteral[c];
+        }
+        console.log("Sum(colleteral): " + sum)
+
 
     }
     </script>
