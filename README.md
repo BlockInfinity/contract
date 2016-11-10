@@ -1,8 +1,6 @@
 # Todo
 
-1. settlement Funktion 
-
-2. Pseudo Input generieren in der test_settleUserPositions.
+2. Analog zu den reserve-ask-order-price auch ein reserve-bid-order-price vorab bestimmen
 
 3. Vollständiger Test vom js code mit simulierten Block-Zeitintervallen.
 

@@ -56,7 +56,7 @@
 
 
 
-        colleteral[_ownerid] = 0;
+        colleteral[_ownerid] = 10000;
 
         if (order_id in orders) return;
 
@@ -246,7 +246,7 @@
     var reservePriceMapping = {};
 
     // TODO: events rausballern für jeden user dessen  orders gematched wurden
-
+    // TODO: auch den Kaufpreis vorab bestimmen
     function determineReservePrice() {
         var cumAskReserveVol = 0;
         var reserve_price;
@@ -338,10 +338,13 @@
     }
 
 
-    // TODO die Reserve Leute müssen noch mit berücksichtigt werden
+
     function settle(_user, _type, _volume, _period) {
 
         if (matchedAskOrderMapping[_period] === undefined || matchedBidOrderMapping[_period] === undefined) throw "Period that should be settled does not exist";
+        if (colleteral[_user] === undefined) {
+            colleteral[_user] = 0;
+        };
 
         var success = false;
 
@@ -360,7 +363,7 @@
 
             if (matchedReserveOrderMapping[_period][user] !== undefined) {
                 if (matchedReserveOrderMapping[_period][user].offeredVolume === undefined) {
-                    console.warn("Position already settled.");
+                    //console.warn("Position already settled.");
                     return false;
                 }
 
@@ -373,12 +376,12 @@
                 }
                 matchedReserveOrderMapping[_period][user] = {};
                 //console.log("(Settlement Reserve Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+reservePrice);
-                seccess = true;
+                success = true;
             }
 
             if (matchedAskOrderMapping[_period][user] !== undefined) {
                 if (matchedAskOrderMapping[_period][user].offeredVolume === undefined) {
-                    console.warn("Position already settled.");
+                    //console.warn("Position already settled.");
                     return false;
                 }
 
@@ -405,7 +408,7 @@
 
             if (matchedBidOrderMapping[_period][user] !== undefined) {
                 if (matchedBidOrderMapping[_period][user].orderedVolume === undefined) {
-                    console.warn("Position already settled.");
+                    //console.warn("Position already settled.");
                     return false;
                 }
 
@@ -519,7 +522,7 @@
         sumReserved = 0;
         
         for (user in consumers) {
-            var vol = Math.floor(Math.random() * 40) + 1;
+            var vol = Math.floor(Math.random() * 10) + 1;
             sumConsumed += vol;
             settle(consumers[user], "CONSUMER", vol, period);
         }
@@ -530,6 +533,8 @@
             settle(producers[user], "PRODUCER", vol, period);
         }
 
+        if (sumProduced < sumConsumed)
+
         for (user in reserveProviders) {
             var vol = Math.floor(Math.random() * 10) + 1; 
             sumReserved += vol;
@@ -537,7 +542,6 @@
                 sumReserved -= vol;
                 vol = (sumConsumed - sumProduced) - sumReserved;
                 sumReserved += vol;
-                return;
             }
             settle(reserveProviders[user], "PRODUCER", vol, period);
         }
@@ -557,19 +561,24 @@
         determineReservePrice();
         getOrders();
         test_settle();
-        console.log(colleteral);
-        console.log("Total Consumed Energy: " + TotalConsumedEnergy);
-        console.log("Consumed Energy: " + sumConsumed);
+        
+     
+        console.log("\n######################################");
+        console.log("########## Colleteral ################");
+        console.log("######################################")
+        for (c in colleteral){
+            console.log("User "+c+": "+colleteral[c]);
+        }
+
+
+           console.log("\n######################################");
+        console.log("########## Energy data ###############");
+        console.log("######################################")
+
+        console.log("\nConsumed Energy: " + sumConsumed);
         console.log("Produced Energy: " + sumProduced);
         console.log("Regulated Energy: " + sumReserved);
-        console.log("Sum(produced,regulated): " + (sumReserved + sumProduced));
-
-        console.log("Sum Consumed + Reserved: "+(sumProduced+sumReserved));
-        sum = 0;
-        for (c in colleteral) {
-            sum += colleteral[c];
-        }
-        console.log("Sum(colleteral): " + sum)
+        
 
 
     }
