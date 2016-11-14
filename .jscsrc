@@ -1,0 +1,12 @@
+{
+	"preset": "google",
+	"maximumLineLength": null,
+	"requireCamelCaseOrUpperCaseIdentifiers": null,
+	"disallowMultipleVarDecl": null,
+	"requireUseStrict": true,
+	"requirePaddingNewLinesAfterUseStrict": true,
+	"validateIndentation": 2,
+    "jsDoc": {
+		"disallowNewlineAfterDescription": true
+	}
+}
