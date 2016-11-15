@@ -10,23 +10,21 @@ The order of the functions has to be determined.
 contract Etherex {
 
     struct Match {
-      uint256 volume;
-      uint256 price;
-      address askOwner;
-      address bidOwner;
-      uint256 timestamp;
+        uint256 volume;
+        uint256 price;
+        address askOwner;
+        address bidOwner;
+        uint256 timestamp;
     }
     
-    
     struct Order {
-                
         uint256 id;
         uint256 nex;
         address owner;
         uint256 volume;
         uint256 price;
-        
     }
+
     mapping(uint256 => Order) idToOrder;
     
     uint8 public currState;
@@ -45,8 +43,6 @@ contract Etherex {
     uint256 bigProducerMinVolume = 100000;
     //Additional array for flex bids, more optimal
     
-     
-
     Match[] matches;
 
     //1 for CA, 2 for smart meter
@@ -67,8 +63,7 @@ contract Etherex {
         idToOrder[_prev.id] = _prev;
         idToOrder[_next.id] = _next;
     }
-    
-    
+
     function remove(Order _prev, Order _curr) internal{
         _prev.nex = n(_curr).id;
         delete _curr;
@@ -87,20 +82,16 @@ contract Etherex {
         if (identities[msg.sender] != 1) throw;
         _;
     }
-    
     modifier onlyInState(uint8 _state) {
         updateState();
         if(_state != currState) throw;
         _;
     }
-
     modifier onlyBigProducers(uint256 _volume) {
         if (_volume <  bigProducerMinVolume) throw;
         _;
     }
 
-
- 
     /*
     Wird bei jeder eingehenden Order ausgeführt. 
     Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
@@ -144,13 +135,10 @@ contract Etherex {
         return false;
     }
     
-
-
-    
     // Register Functions
     function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities(){
-      identities[_sm] = 2;
-      smartMeterToUser[_sm] = _user; 
+        identities[_sm] = 2;
+        smartMeterToUser[_sm] = _user; 
     }
     
     //If this is called, just put it on the beginning on the list
@@ -185,7 +173,6 @@ contract Etherex {
         if(bid.nex == minBid.id) {
             minBid = bid;
         }
-        
     }
     
     //Calculate min ask to satisfy flexible bids on the way?
@@ -212,9 +199,7 @@ contract Etherex {
         if(ask.nex == minAsk.id) {
             minAsk = ask;
         }
-
     } 
-    
     
     //Producer can submit ask if he is able to supply two times the average needed volume of
     //electricity
@@ -242,9 +227,7 @@ contract Etherex {
         if(reserveAsk.nex == minReserveAsk.id) {
             minReserveAsk = reserveAsk;
         }
-
     }
-
 
     //TODO Magnus Has to be automatically called from the blockchain
     //Currently without accumulating, does accumulating make sense?
@@ -299,7 +282,7 @@ contract Etherex {
                 currBid=n(currBid);
                 delete prevBid;
 
-            }else if(currAsk.volume < currBid.volume) {
+            } else if(currAsk.volume < currBid.volume) {
                 //Delete the ask
                 matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
                 currBid.volume -= currAsk.volume;
@@ -324,12 +307,11 @@ contract Etherex {
         
         isMatchingDone = true;
         //What remains remains...
-        
     }
 
     //Settlement function called by smart meter, the user is checked if he payed enough
     //for electricity
-    function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters(){
+    function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters() {
 
         uint256 payedForVolume = 0;
         address consumer = smartMeterToUser[msg.sender];
@@ -346,15 +328,14 @@ contract Etherex {
         }
 
         //If he did not buy enough electricity
-        if(payedForVolume < _consumedVolume) {
+        if (payedForVolume < _consumedVolume) {
             //Pay for remaining electricity
             uint256 price = determineReservePrice();
         }
-
     }
 
     //TODO Magnus time controlled
-    function determineReservePrice() returns (uint256){
+    function determineReservePrice() returns (uint256) {
         
     }
 
@@ -362,16 +343,11 @@ contract Etherex {
         identities[_ca] = 1;
     }
 
-
     //Constructor
-  function Etherex(address _certificateAuthority) {
-
-    identities[_certificateAuthority] = 1;
-    idCounter = 1;
-    startBlock = block.number; 
-    currState = 0;
-  }
-  
- 
-
+    function Etherex(address _certificateAuthority) {
+        identities[_certificateAuthority] = 1;
+        idCounter = 1;
+        startBlock = block.number; 
+        currState = 0;
+    }
 }

@@ -34,7 +34,7 @@ var matchedReserveOrderMapping = {};
 var reservePriceMapping = {};
 
 // bid orders without _maxprice are simply orders with
-// a very high _maxprice.
+// a very high _maxprice (flex bid).
 function submitBidOrder(_ownerid, _volume, _price) {
   if (!_ownerid) {
     throw new Error('_ownerid missing');
