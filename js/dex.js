@@ -18,7 +18,7 @@ var colleteral = {};
 
 const INITIAL_COLLATERAL = 10000;
 // default max price for bid orders if no price is provided
-const DEFAULT_MAXPRICE = Number.MAX_SAFE_INTEGER
+const DEFAULT_MAXPRICE = Number.MAX_SAFE_INTEGER;
 
 // only for test. On blockchain the period is determined by the blocknumber.
 var period = 0;
@@ -90,7 +90,7 @@ function save_order(_type, _ownerid, _volume, _price) {
     throw new Error('_ownerid missing');
   }
   // check onwer is known
-  // todo: allow multiple orders
+  // TODO(ms): allow multiple orders
   if (_ownerid in tmpowners) {
     throw new Error('owner with _ownerid ' + _ownerid + ' already submitted an order.');
   }
@@ -114,11 +114,11 @@ function save_order(_type, _ownerid, _volume, _price) {
   colleteral[_ownerid] = INITIAL_COLLATERAL;
 
   var Order = {
-    typ: undefined,
+    type: undefined,
     volume: undefined,
     price: undefined,
     id: undefined,
-    owner: undefined,
+    ownerid: undefined,
   };
 
   var Pointer = {
@@ -214,11 +214,43 @@ function save_order(_type, _ownerid, _volume, _price) {
   return true;
 }
 
+function getBidOrders() {
+  var id_iter_bid = highest_bid_id;
+  var bidOrders = [];
+  while (orders[id_iter_bid]) {
+    bidOrders.push(orders[id_iter_bid]);
+    id_iter_bid = bid_orderbook[id_iter_bid].next_order_id;
+  }
+  return bidOrders;
+}
+
+function printBidOrders() {
+  for (order in getBidOrders()) {
+    onsole.log('Price: ' + order.price + ' | Volume: ' + order.volume + ' | Owner: ' + order.ownerid);
+  }
+}
+
+function getAskOrders() {
+  var id_iter_ask = lowest_ask_id;
+  var askOrders = [];
+  while (orders[id_iter_ask]) {
+    askOrders.push(orders[id_iter_ask]);
+    id_iter_ask = ask_orderbook[id_iter_ask].next_order_id;
+  }
+  return askOrders;
+}
+
+function printAskOrders() {
+  for (order in getAskOrders()) {
+    console.log('Price: ' + order.price + ' | Volume: ' + order.volume + ' | Owner: ' + order.ownerid);
+  }
+}
+
 // matches orders and saves the resulting information in the matchedAskOrderMapping and matchedBidOrderMapping
 // TODO: events rausballern für jeden user dessen orders gematched wurden
 function match() {
   if (Object.keys(bid_orderbook).length === 0 || Object.keys(ask_orderbook).length === 0) {
-    delete_tmpMatchingData();
+    resetOrders();
     return;
   }
 
@@ -236,11 +268,11 @@ function match() {
   while (!isMatched) {
     while (orders[id_iter_ask].price === matching_price) {
       var volume = orders[id_iter_ask].volume;
-      var owner_id = orders[id_iter_ask].owner_id;
+      var ownerid = orders[id_iter_ask].ownerid;
 
       cumAskVol += volume;
 
-      appendToDoubleMapping(matchedAskOrderMapping, period, owner_id, {
+      appendToDoubleMapping(matchedAskOrderMapping, period, ownerid, {
         offeredVolume: volume
       });
 
@@ -255,12 +287,12 @@ function match() {
     // TODO: iterates each time through the mapping. Find better solution!
     while (orders[id_iter_bid].price >= matching_price) {
       var volume = orders[id_iter_bid].volume;
-      var owner_id = orders[id_iter_bid].owner_id;
+      var ownerid = orders[id_iter_bid].ownerid;
       var next_order_id = bid_orderbook[id_iter_bid].next_order_id;
 
       cumBidVol += volume;
 
-      appendToDoubleMapping(matchedBidOrderMapping, period, owner_id, {
+      appendToDoubleMapping(matchedBidOrderMapping, period, ownerid, {
         orderedVolume: volume
       });
 
@@ -282,13 +314,13 @@ function match() {
 
   // calculates how much energy each producer can release into the grid within the next interval
   var share = cumBidVol / cumAskVol;
-  for (owner_id in matchedAskOrderMapping[period]) {
-    matchedAskOrderMapping[period][owner_id].offeredVolume = matchedAskOrderMapping[period][owner_id].offeredVolume * share;
+  for (ownerid in matchedAskOrderMapping[period]) {
+    matchedAskOrderMapping[period][ownerid].offeredVolume = matchedAskOrderMapping[period][ownerid].offeredVolume * share;
   }
 
   matchingPriceMapping[period] = matching_price;
 
-  delete_tmpMatchingData();
+  resetOrders();
 
   console.log('\n######################################');
   console.log('########### Matching Result ##########');
@@ -296,7 +328,7 @@ function match() {
   console.log('Matching price: ', matching_price, ' | Matched Bid Volume: ', cumBidVol, ' | Available Ask Volume: ', cumAskVol, ' | share: ', share);
 }
 
-function delete_tmpMatchingData() {
+function resetOrders() {
   // both orderbooks need to be deleted
   ask_orderbook = {};
   bid_orderbook = {};
@@ -344,10 +376,10 @@ function determineReservePrice() {
   while (!isFound) {
     while (orders[id_iter_ask].price === reserve_price) {
       var volume = orders[id_iter_ask].volume;
-      var owner_id = orders[id_iter_ask].owner_id;
+      var ownerid = orders[id_iter_ask].ownerid;
 
       cumAskReserveVol += volume;
-      appendToDoubleMapping(matchedReserveOrderMapping, period, owner_id, {
+      appendToDoubleMapping(matchedReserveOrderMapping, period, ownerid, {
         offeredVolume: volume
       });
 
@@ -386,8 +418,8 @@ function getOrders() {
   console.log('######################################');
 
   for (var period in matchedAskOrderMapping) {
-    for (var owner_id in matchedAskOrderMapping[period]) {
-      console.log('Period: ', period, ' | Owner: ', owner_id, ' | OfferedVol: ', matchedAskOrderMapping[period][owner_id].offeredVolume);
+    for (var ownerid in matchedAskOrderMapping[period]) {
+      console.log('Period: ', period, ' | Owner: ', ownerid, ' | OfferedVol: ', matchedAskOrderMapping[period][ownerid].offeredVolume);
     }
   }
 
@@ -396,25 +428,9 @@ function getOrders() {
   console.log('######################################');
 
   for (var period in matchedBidOrderMapping) {
-    for (var owner_id in matchedBidOrderMapping[period]) {
-      console.log('Period: ', period, ' | Owner: ', owner_id, ' | OrderedVol: ', matchedBidOrderMapping[period][owner_id].orderedVolume);
+    for (var ownerid in matchedBidOrderMapping[period]) {
+      console.log('Period: ', period, ' | Owner: ', ownerid, ' | OrderedVol: ', matchedBidOrderMapping[period][ownerid].orderedVolume);
     }
-  }
-}
-
-function getBidOrders() {
-  var id_iter_bid = highest_bid_id;
-  while (orders[id_iter_bid] != undefined) {
-    console.log('MaxPrice: ' + orders[id_iter_bid].price + ' | Volume: ' + orders[id_iter_bid].volume + ' | Owner: ' + orders[id_iter_bid].owner_id);
-    id_iter_bid = bid_orderbook[id_iter_bid].next_order_id;
-  }
-}
-
-function getAskOrders() {
-  var id_iter_ask = lowest_ask_id;
-  while (orders[id_iter_ask] != undefined) {
-    console.log('Price: ' + orders[id_iter_ask].price + ' | Volume: ' + orders[id_iter_ask].volume + ' | Owner: ' + orders[id_iter_ask].owner_id);
-    id_iter_ask = ask_orderbook[id_iter_ask].next_order_id;
   }
 }
 
@@ -530,7 +546,7 @@ var dex = {
   submitReserveAsk: submitReserveAsk,
   save_order: save_order,
   match: match,
-  delete_tmpMatchingData: delete_tmpMatchingData,
+  resetOrders: resetOrders,
   appendToDoubleMapping: appendToDoubleMapping,
   determineReservePrice: determineReservePrice,
   getOrders: getOrders,
