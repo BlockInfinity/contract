@@ -32,7 +32,7 @@ describe('randomly generate asks and bids', function() {
         var owner = Math.floor(Math.random() * users) + 1;
 
         price = Math.floor(Math.random() * 99) + 1;
-        if (dex.submitAskOrder(price, erzeugung, owner)) {
+        if (dex.submitAskOrder(owner, erzeugung, price)) {
           producers.push(owner);
         }
       }
@@ -47,7 +47,7 @@ describe('randomly generate asks and bids', function() {
         } else {
           maxPrice = 9999;
         }
-        if (dex.submitBidOrder(maxPrice, verbrauch, owner)) {
+        if (dex.submitBidOrder(owner, verbrauch, maxPrice)) {
           consumers.push(owner);
         }
       }
@@ -78,7 +78,7 @@ describe('randomly generate asks and bids', function() {
         var owner = Math.floor(Math.random() * users) + users;
 
         price = Math.floor(Math.random() * 99) + 1;
-        if (dex.submitReserveAsk(price, erzeugung, owner)) {
+        if (dex.submitReserveAsk(owner, erzeugung, price)) {
           reserveProviders.push(owner);
         }
       }
