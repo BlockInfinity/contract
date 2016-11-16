@@ -33,7 +33,7 @@ contract Etherex {
 
     uint256 idCounter;
     
-    mapping (address => address) smartMeterToUser;
+    mapping(address => address) smartMeterToUser;
     
     Order public minAsk = Order(0,0,0,0,0);
     Order public minBid = Order(0,0,0,0,0);
@@ -52,11 +52,20 @@ contract Etherex {
     //if the balance is below 0, then send event that turns of energy
     mapping (address => uint256) public collateral;
 
+    //Constructor
+    function Etherex(address _certificateAuthority) {
+        identities[_certificateAuthority] = 1;
+        idCounter = 1;
+        startBlock = block.number; 
+        currState = 0;
+    }
+
     //Linked list helper functions
     //Returns next in list
     function n(Order _o) internal returns(Order) {
         return idToOrder[_o.nex];
     }
+
     //Binds the node into list
     function bind(Order _prev, Order _curr, Order _next) internal{
         idToOrder[_curr.id] = _curr;
@@ -70,16 +79,16 @@ contract Etherex {
     } 
 
     // modifiers
+    modifier onlyCertificateAuthorities(){
+        if (identities[msg.sender] != 1) throw;
+        _;
+    }
     modifier onlySmartMeters(){
         if (identities[msg.sender] != 2) throw;
         _;
     }
     modifier onlyUsers(){
         if (smartMeterToUser[msg.sender] == 0) throw;
-        _;
-    }
-    modifier onlyCertificateAuthorities(){
-        if (identities[msg.sender] != 1) throw;
         _;
     }
     modifier onlyInState(uint8 _state) {
@@ -136,7 +145,11 @@ contract Etherex {
     }
     
     // Register Functions
-    function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities(){
+    function registerCertificateAuthority(address _ca) {
+        identities[_ca] = 1;
+    }
+
+    function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities() {
         identities[_sm] = 2;
         smartMeterToUser[_sm] = _user; 
     }
@@ -149,7 +162,7 @@ contract Etherex {
         flexBids.push(bid);
     }
 
-    function submitBid(uint256 _price, uint256 _volume)  {
+    function submitBid(uint256 _price, uint256 _volume) onlyUsers() {
         
         Order memory bid = Order(idCounter++, 0, msg.sender, _volume, _price);
         
@@ -176,7 +189,7 @@ contract Etherex {
     }
     
     //Calculate min ask to satisfy flexible bids on the way?
-    function submitAsk(uint256 _price, uint256 _volume) {
+    function submitAsk(uint256 _price, uint256 _volume) onlySmartMeters() {
         
         Order memory ask = Order(idCounter++, 0, msg.sender, _volume, _price);
         
@@ -337,17 +350,5 @@ contract Etherex {
     //TODO Magnus time controlled
     function determineReservePrice() returns (uint256) {
         
-    }
-
-    function registerCertificateAuthority(address _ca) {
-        identities[_ca] = 1;
-    }
-
-    //Constructor
-    function Etherex(address _certificateAuthority) {
-        identities[_certificateAuthority] = 1;
-        idCounter = 1;
-        startBlock = block.number; 
-        currState = 0;
     }
 }

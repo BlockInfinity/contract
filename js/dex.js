@@ -407,30 +407,37 @@ function determineReservePrice() {
   console.log('\nReserve Price: ' + reserve_price + ' | Volume (>1000): ' + cumAskReserveVol);
 }
 
-function getOrders() {
-
-  console.log('\n##################################################################################################################');
-  console.log('################################################## Overall Result ################################################ ');
-  console.log('##################################################################################################################');
-
-  console.log('\n######################################');
-  console.log('######### Matched Ask Orders #########');
-  console.log('######################################');
-
+function getMatchedAskOrders() {
+  var matchedAskOrders = [];
   for (var period in matchedAskOrderMapping) {
     for (var ownerid in matchedAskOrderMapping[period]) {
-      console.log('Period: ', period, ' | Owner: ', ownerid, ' | OfferedVol: ', matchedAskOrderMapping[period][ownerid].offeredVolume);
+      matchedAskOrders.push({'period': period, 'ownerid': ownerid, 'offeredVolume': matchedAskOrderMapping[period][ownerid].offeredVolume});
     }
   }
+  return matchedAskOrders;
+}
 
-  console.log('\n######################################');
-  console.log('######### Matched Bid Orders #########');
-  console.log('######################################');
+function printMatchedAskOrders() {
+  var matchedAskOrders = getMatchedAskOrders();
+  for (matchedAskOrder in matchedAskOrders) {
+    console.log('Period: ', matchedAskOrder.period, ' | Owner: ', matchedAskOrder.ownerid, ' | OfferedVol: ', matchedAskOrder.offeredVolume);
+  }
+}
 
+function getMatchedBidOrders() {
+  var matchedBidOrders = [];
   for (var period in matchedBidOrderMapping) {
     for (var ownerid in matchedBidOrderMapping[period]) {
-      console.log('Period: ', period, ' | Owner: ', ownerid, ' | OrderedVol: ', matchedBidOrderMapping[period][ownerid].orderedVolume);
+      matchedBidOrders.push({'period': period, 'ownerid': ownerid, 'orderedVolume': matchedBidOrderMapping[period][ownerid].orderedVolume});
     }
+  }
+  return matchedBidOrders;
+}
+
+function printMatchedBidOrders() {
+  var matchedBidOrders = getMatchedBidOrders();
+  for (matchedBidOrder in matchedBidOrders) {
+    console.log('Period: ', matchedBidOrder.period, ' | Owner: ', matchedBidOrder.ownerid, ' | OrderedVol: ', matchedBidOrder.orderedVolume);
   }
 }
 
@@ -549,7 +556,8 @@ var dex = {
   resetOrders: resetOrders,
   appendToDoubleMapping: appendToDoubleMapping,
   determineReservePrice: determineReservePrice,
-  getOrders: getOrders,
+  getMatchedAskOrders: getMatchedAskOrders,
+  getMatchedBidOrders: getMatchedBidOrders,
   getBidOrders: getBidOrders,
   getAskOrders: getAskOrders,
   settle: settle
