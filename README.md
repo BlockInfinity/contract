@@ -12,13 +12,11 @@
 
 7. Programm mit echten Rohdaten speisen und analysieren => Abschlusspräsentation
 
-
 # Background
 
 http://www.ponton.de/downloads/mm/Einsatzpotenziale-der-Blockchain-im-Energiehandel_Merz_2016.pdf
 
 # Links for development
-
 
 https://ethereum.github.io/browser-solidity/#version=soljson-latest.js
 
@@ -36,12 +34,22 @@ https://github.com/IISM-Ethereum/Guide
 
 https://github.com/IISM-Ethereum/Miner
 
-
-# videos
+# Videos
 
 Proof Of Stake / Scalability (devcon2)
 https://www.youtube.com/watch?v=W9b4vQ37-qQ
 
+# Run solidity tests
 
+Prerequisites
 
+1.) Install Ethereum RPC client https://github.com/ethereumjs/testrpc
 
+Testing
+
+1.) Start Ethereum RPC client, e.g. 1000 accounts
+$ testrpc --accounts 1000
+
+2.) cd ./dex
+
+3.) truffle test

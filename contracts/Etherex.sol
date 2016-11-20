@@ -9,14 +9,6 @@ The order of the functions has to be determined.
 */
 contract Etherex {
 
-    struct Match {
-        uint256 volume;
-        uint256 price;
-        address askOwner;
-        address bidOwner;
-        uint256 timestamp;
-    }
-    
     struct Order {
         uint256 id;
         uint256 nex;
@@ -25,32 +17,49 @@ contract Etherex {
         uint256 price;
     }
 
-    mapping(uint256 => Order) idToOrder;
-    
-    uint8 public currState;
-    uint256 public startBlock;
-    bool isMatchingDone = false;
+    struct Match {
+        uint256 volume;
+        uint256 price;
+        address askOwner;
+        address bidOwner;
+        uint256 timestamp;
+    }
 
-    uint256 idCounter;
-    
-    mapping(address => address) smartMeterToUser;
-    
-    Order public minAsk = Order(0,0,0,0,0);
-    Order public minBid = Order(0,0,0,0,0);
-    Order minReserveAsk = Order(0,0,0,0,0);
-    Order[] flexBids;
-    uint256 flexBidVolume = 0;
-    uint256 bigProducerMinVolume = 100000;
-    //Additional array for flex bids, more optimal
-    
-    Match[] matches;
-
-    //1 for CA, 2 for smart meter
-    mapping (address => uint8) identities;
+    uint256 BIG_PRODUCER_MIN_VOL = 100000;
 
     //Balance for consumed energy that was not bought through orders
     //if the balance is below 0, then send event that turns of energy
-    mapping (address => uint256) public collateral;
+    mapping(address => uint256) public collateral;
+
+    // maps order id to order objects
+    mapping(uint256 => Order) idToOrder;
+
+    // each smart meter has a user attached
+    mapping(address => address) smartMeterToUser;
+
+    // stores matching results    
+    Match[] matches;
+
+    bool isMatchingDone = false;
+        
+    Order public minAsk = Order(0,0,0,0,0);
+    Order public minBid = Order(0,0,0,0,0);
+
+    Order minReserveAsk = Order(0,0,0,0,0);
+
+    // flex bids
+    Order[] flexBids;
+    uint256 flexBidVolume = 0;
+    //Additional array for flex bids, more optimal
+    
+    //1: CA, 2: smart meter
+    mapping(address => uint8) identities;
+
+    uint256 idCounter;
+
+    uint8 public currState;
+
+    uint256 public startBlock;
 
     //Constructor
     function Etherex(address _certificateAuthority) {
@@ -60,34 +69,16 @@ contract Etherex {
         currState = 0;
     }
 
-    //Linked list helper functions
-    //Returns next in list
-    function n(Order _o) internal returns(Order) {
-        return idToOrder[_o.nex];
-    }
-
-    //Binds the node into list
-    function bind(Order _prev, Order _curr, Order _next) internal{
-        idToOrder[_curr.id] = _curr;
-        idToOrder[_prev.id] = _prev;
-        idToOrder[_next.id] = _next;
-    }
-
-    function remove(Order _prev, Order _curr) internal{
-        _prev.nex = n(_curr).id;
-        delete _curr;
-    } 
-
-    // modifiers
-    modifier onlyCertificateAuthorities(){
+    //Modifiers
+    modifier onlyCertificateAuthorities() {
         if (identities[msg.sender] != 1) throw;
         _;
     }
-    modifier onlySmartMeters(){
+    modifier onlySmartMeters() {
         if (identities[msg.sender] != 2) throw;
         _;
     }
-    modifier onlyUsers(){
+    modifier onlyUsers() {
         if (smartMeterToUser[msg.sender] == 0) throw;
         _;
     }
@@ -97,7 +88,7 @@ contract Etherex {
         _;
     }
     modifier onlyBigProducers(uint256 _volume) {
-        if (_volume <  bigProducerMinVolume) throw;
+        if (_volume <  BIG_PRODUCER_MIN_VOL) throw;
         _;
     }
 
@@ -114,37 +105,27 @@ contract Etherex {
         } else if (inStateOne() && currState != 1) {
             currState = 1;
             matching();
-        } else {                                        // Zyklus beginnt von vorne
-            startBlock = block.number;
-            isMatchingDone = false;
-              /* 
-            TODO: 
-            Zu Beginn der Periode müssten alle Orders gelöscht werden. Können wir statt idToOrder mapping ein array benutzen? Das könnte man dann mit delete auf null setzen.      
-            */
-            delete flexBids;
-            idCounter=1;
-            minAsk.id=0;
-            minAsk.nex=0;
-            minBid.id=0;
-            minBid.nex=0;
+        // Zyklus beginnt von vorne
+        } else {
+            reset();
         }             
     }
  
-    function inStateZero() internal returns (bool rv){
+    function inStateZero() internal returns (bool rv) {
         if (block.number < (startBlock + 50)) {
             return true;
         }
         return false;
     }
 
-    function inStateOne() internal returns (bool rv){
-        if (block.number >= (startBlock + 50) && block.number < (startBlock + 75)){
+    function inStateOne() internal returns (bool rv) {
+        if (block.number >= (startBlock + 50) && block.number < (startBlock + 75)) {
             return true;
         }
         return false;
     }
     
-    // Register Functions
+    //Register Functions
     function registerCertificateAuthority(address _ca) {
         identities[_ca] = 1;
     }
@@ -153,64 +134,119 @@ contract Etherex {
         identities[_sm] = 2;
         smartMeterToUser[_sm] = _user; 
     }
+
+    function reset() {
+        startBlock = block.number;
+        isMatchingDone = false;
+          /* 
+        TODO: 
+        Zu Beginn der Periode müssten alle Orders gelöscht werden. Können wir statt idToOrder mapping ein array benutzen? Das könnte man dann mit delete auf null setzen.      
+        */
+        delete flexBids;
+        idCounter = 1;
+        minAsk.id = 0;
+        minAsk.nex = 0;
+        minBid.id = 0;
+        minBid.nex = 0;
+    }
     
-    //If this is called, just put it on the beginning on the list
+    //////////////////////////
+    // Submit bid/ask helper functions
+    //////////////////////////
+
+    //Returns next in list
+    function n(Order _o) internal returns(Order) {
+        return idToOrder[_o.nex];
+    }
+
+    //Binds the node into list
+    function bind(Order _prev, Order _curr, Order _next) internal {
+        idToOrder[_curr.id] = _curr;
+        idToOrder[_prev.id] = _prev;
+        idToOrder[_next.id] = _next;
+    }
+
+    function remove(Order _prev, Order _curr) internal {
+        _prev.nex = n(_curr).id;
+        delete _curr;
+    } 
+
+    // put flex bid in separate flex bid pool
     function submitFlexBid(uint256 _volume) {
         Order memory bid;
         bid.volume = _volume;
-        flexBidVolume +=_volume;
+        flexBidVolume += _volume;
         flexBids.push(bid);
     }
 
-    function submitBid(uint256 _price, uint256 _volume) onlyUsers() {
-        
+    //todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
+    function submitBid(uint256 _price, uint256 _volume) /*onlyUsers()*/ {
+        // allocate new order
         Order memory bid = Order(idCounter++, 0, msg.sender, _volume, _price);
-        
-        //Iterate over list till same price encountered
-        Order memory curr = minBid;
-        Order memory prev;
-        prev.nex = minBid.id;
-        if(minBid.id == 0) {
+
+        // save and return if this the first bid
+        if (minBid.id == 0) {
+            idToOrder[bid.id] = bid;
             minBid = bid;
             return;
         }
-
-        while(bid.price > curr.price && curr.id != 0) {
-            curr=n(curr);
-            prev = n(prev);
+        
+        // iterate over list till same price encountered
+        uint256 curr = minBid.id;
+        uint256 prev = 0;
+        while (bid.price > idToOrder[curr].price && curr != 0) {
+            prev = curr;
+            curr = idToOrder[curr].nex;
         }
-        //Have to do it here because solidity passes by value -.-
-        bid.nex = curr.id;
-        prev.nex = bid.id;
-        bind(prev, bid, curr);
-        if(bid.nex == minBid.id) {
+
+        // update pointer 
+        bid.nex = curr;
+
+        // insert bid
+        idToOrder[bid.id] = bid;
+
+        // bid added at the beginning
+        if (bid.nex == minBid.id) {
             minBid = bid;
+        // at least one prev order exists
+        } else {
+            idToOrder[prev].nex = bid.id;
         }
     }
     
-    //Calculate min ask to satisfy flexible bids on the way?
+    // calculate min ask to satisfy flexible bids on the way?
+    // todo(ms): remove code redudancy
     function submitAsk(uint256 _price, uint256 _volume) onlySmartMeters() {
-        
+        // allocate new order
         Order memory ask = Order(idCounter++, 0, msg.sender, _volume, _price);
-        
-        if(minAsk.id == 0){
+
+        // save and return if this the first ask
+        if (minAsk.id == 0) {
+            idToOrder[ask.id] = ask;
             minAsk = ask;
             return;
         }
         
-        //Iterate over list till same price encountered
-        Order memory curr = minAsk;
-        Order memory prev;
-        prev.nex = minAsk.id;
-        while(ask.price > curr.price && curr.id != 0) {
-            curr=n(curr);
-            prev = n(prev);
+        // iterate over list till same price encountered
+        uint256 curr = minAsk.id;
+        uint256 prev = 0;
+        while (ask.price > idToOrder[curr].price && curr != 0) {
+            prev = curr;
+            curr = idToOrder[curr].nex;
         }
-        ask.nex = curr.id;
-        prev.nex = ask.id;
-        bind(prev, ask, curr);
-        if(ask.nex == minAsk.id) {
+
+        // update pointer 
+        ask.nex = curr;
+
+        // insert ask
+        idToOrder[ask.id] = ask;
+
+        // ask added at the beginning
+        if (ask.nex == minAsk.id) {
             minAsk = ask;
+        // at least one prev order exists
+        } else {
+            idToOrder[prev].nex = ask.id;
         }
     } 
     
@@ -350,5 +386,27 @@ contract Etherex {
     //TODO Magnus time controlled
     function determineReservePrice() returns (uint256) {
         
+    }
+
+    // Helper functions, mainly for testing purposes
+    function getOrderPropertyById(uint256 _orderId, uint _property) returns(uint256) {
+        if (_property == 0) {
+            return idToOrder[_orderId].id;
+        } else if (_property == 1) {
+            return idToOrder[_orderId].nex;
+        } else if (_property == 2) {
+            return idToOrder[_orderId].price;
+        } else if (_property == 3) {
+            return idToOrder[_orderId].volume;
+        } else {
+            return 0;
+        }
+    }
+
+    function getOrderIdLastOrder() returns(uint256) {
+        if (idCounter == 1) {
+            return 0;
+        }
+        return idCounter-1;
     }
 }

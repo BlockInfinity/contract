@@ -9,16 +9,13 @@ chai.use(chaiAsPromised);
 const eth = web3.eth;
 
 const PERCENTAGE_CERTIFICATE_AUTHORITIES = 0.05;
-const PERCENTAGE_VALID_ACCOUNTS = 0.8;
-const PERCENTAGE_SMART_METERS = 0.5;
+const PERCENTAGE_PRODUCERS = 0.5;
 
 contract('Etherex', function(accounts) {
 
   var certificateAuthorities;
-  var smartMeters;
-  var users;
-  var validAccounts;
-  var invalidAccounts;
+  var producers;
+  var consumers;
   var etherex;
 
   beforeEach(function() {
@@ -26,120 +23,213 @@ contract('Etherex', function(accounts) {
     eth.defaultAccount = accounts[0];
     // certificate authorities
     certificateAuthorities = accounts.slice(0, PERCENTAGE_CERTIFICATE_AUTHORITIES * accounts.length);
-    // all acounts
+    // all accounts
     accounts = accounts.slice(PERCENTAGE_CERTIFICATE_AUTHORITIES * accounts.length, accounts.length);
-    // valid accounts
-    validAccounts = accounts.slice(0, PERCENTAGE_VALID_ACCOUNTS * accounts.length);
     // producers
-    smartMeters = accounts.slice(0, PERCENTAGE_SMART_METERS * accounts.length);
+    producers = accounts.slice(0, PERCENTAGE_PRODUCERS * accounts.length);
     // consumers
-    users = accounts.slice(PERCENTAGE_SMART_METERS * accounts.length, accounts.length);
+    consumers = accounts.slice(PERCENTAGE_PRODUCERS * accounts.length, accounts.length);
     // set up etherex
     etherex = Etherex.deployed();
   });
 
-  it('The contract should be deployed to the blockchain', function(done) {
-    assert(etherex);
-    done();
-  });
+  describe('submit orders by consumers', function() {
+    it('The contract should be deployed to the blockchain', function(done) {
+      assert(etherex);
+      done();
+    });
 
-  it('Register certificate authorities', function() {
-    return expect(co(function*() {
-      assert(accounts[0]);
-      for (var i = 0; i < certificateAuthorities.length; i++) {
-        assert(certificateAuthorities[i]);
-        yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
-      }
-    })).not.to.be.rejected;
-  });
-
-  it('Register smart meters with users - should work', function() {
-    return expect(co(function*() {
-      assert(certificateAuthorities[0]);
-      for (var i = 0; i < smartMeters.length; i++) {
-        assert(smartMeters[i]);
-        assert(users[i]);
-        yield etherex.registerSmartMeter(smartMeters[i], users[i], {from: certificateAuthorities[0]});
-      }
-    })).not.to.be.rejected;
-  });
-
-  it('Register smart meters with users - should not work', function() {
-    for (var i = 0; i < smartMeters.length; i++) {
-      assert(users[0]);
+    it('register certificate authorities - should work', function() {
       return expect(co(function*() {
-        assert(smartMeters[i]);
-        assert(users[i]);
-        yield etherex.registerSmartMeter(smartMeters[i], users[i], {from: users[0]});
-      })).to.be.rejected;
-    }
-  });
-
-  it.skip('Basic accounts balance test, every account has some ether', function() {
-    for (var i = 0; i < accounts.length; i++) {
-      assert(eth.getBalance(accounts[i]) > 0, 'The account ' + accounts[i] + ' does not have a balance > 0');
-    }
-  });
-
-  it('submit bids by consumers - should work', function() {
-    for (var i = 0; i < users.length; i++) {
-      return expect(co(function*() {
-        yield etherex.submitBid(i, i, {from: users[i]});
+        assert(accounts[0]);
+        for (var i = 0; i < certificateAuthorities.length; i++) {
+          assert(certificateAuthorities[i]);
+          yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
+        }
       })).not.to.be.rejected;
-    }
-  });
+    });
 
-  it('submit bids by producers - should not work', function() {
-    for (var i = 0; i < smartMeters.length; i++) {
+    it('register smart meters by certificate authority - should work', function() {
       return expect(co(function*() {
-        yield etherex.submitBid(i, i, {from: smartMeters[i]});
-      })).to.be.rejected;
-    }
-  });
-
-  it('submit asks by producers - should work', function() {
-    for (var i = 0; i < smartMeters.length; i++) {
-      return expect(co(function*() {
-        yield etherex.submitAsk(i, i, {from: smartMeters[i]});
+        assert(certificateAuthorities[0]);
+        assert(producers[0]);
+        assert(consumers[0]);
+        yield etherex.registerCertificateAuthority(certificateAuthorities[0], {from: accounts[0]});
+        yield etherex.registerSmartMeter(producers[0], consumers[0], {from: certificateAuthorities[0]});
       })).not.to.be.rejected;
-    }
-  });
+    });
 
-  it('submit asks by consumers - should not work', function() {
-    for (var i = 0; i < users.length; i++) {
+    it('register smart meters by consumer - should not work', function() {
       return expect(co(function*() {
-        yield etherex.submitAsk(i, i, {from: users[i]});
+        yield etherex.registerSmartMeter(producers[0], consumers[0], {from: consumers[0]});
       })).to.be.rejected;
-    }
+    });
+
+    it.skip('basic accounts balance test, every account has some ether', function() {
+      for (var i = 0; i < accounts.length; i++) {
+        assert(eth.getBalance(accounts[i]) > 0, 'The account ' + accounts[i] + ' does not have a balance > 0');
+      }
+    });
   });
 
-  it('#submitBid storage check', function(done) {
-    //TODO adding random bids from random users
-    //console.log(etherex.minBid);
-    done();
-  });
+  describe('submit orders by consumers', function() {
 
-  describe('#matching', function() {
-    it('Matching should be done correctly (dependant on the algorithm)', function(done) {
-        done();
+    var priceMultiplier = 100;
+    var volumeMultiplier = 100;
+
+    beforeEach(function() {
+      return co(function*() {
+        for (var i = 0; i < certificateAuthorities.length; i++) {
+          assert(certificateAuthorities[i]);
+          yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
+        }
+
+        for (var i = 0; i < producers.length; i++) {
+          assert(producers[i]);
+          assert(consumers[i]);
+          yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
+        }
       });
-  });
+    });
 
-  describe('#updateState', function() {
-    it('State should update correctly dependant on blocks', function(done) {
-      done();
+    beforeEach(function() {
+      return co(function*() {
+        yield etherex.reset();
+      });
+    });
+
+    it.skip('submit bids by producer - should not work', function() {
+      return expect(co(function*() {
+        yield etherex.submitBid(1 * priceMultiplier, 1 * volumeMultiplier, {from: producers[0]});
+      })).to.be.rejected;
+    });
+
+    it('insert bids with price in ascending order - should work', function() {
+      assert(consumers.length >= 10);
+      return expect(co(function*() {
+        var orderIds = [];
+        for (var i = 0; i < 10; i++) {
+          yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
+          var lastOrderId = yield etherex.getOrderIdLastOrder.call();
+          orderIds.push(lastOrderId.toNumber());
+        }
+
+        for (var i = 0; i < orderIds.length; i++) {
+          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          assert(orderIds[i] === orderId.toNumber());
+          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
+          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() + 1)) === nex.toNumber());
+          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
+          assert(i * priceMultiplier === price.toNumber());
+          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
+          assert(i * volumeMultiplier === volume.toNumber());
+        }
+      })).not.to.be.rejected;
+    });
+
+    it('insert bids with price in descending order - should work', function() {
+      assert(consumers.length >= 10);
+      return expect(co(function*() {
+        var orderIds = [];
+        for (var i = 9; i >= 0; i--) {
+          yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
+          var lastOrderId = yield etherex.getOrderIdLastOrder.call();
+          orderIds.unshift(lastOrderId.toNumber());
+        }
+
+        for (var i = 0; i < orderIds.length; i++) {
+          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          assert(orderIds[i] === orderId.toNumber());
+          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
+          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() - 1)) === nex.toNumber());
+          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
+          assert(i * priceMultiplier === price.toNumber());
+          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
+          assert(i * volumeMultiplier === volume.toNumber());
+        }
+      })).not.to.be.rejected;
+    });
+
+    it('submit asks by consumer - should not work', function() {
+      return expect(co(function*() {
+        yield etherex.submitAsk(1 * priceMultiplier, 1 * volumeMultiplier, {from: consumers[0]});
+      })).to.be.rejected;
+    });
+
+    it('insert asks with price in ascending order - should work', function() {
+      assert(producers.length >= 10);
+      return expect(co(function*() {
+        var orderIds = [];
+        for (var i = 0; i < 10; i++) {
+          yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
+          var lastOrderId = yield etherex.getOrderIdLastOrder.call();
+          orderIds.push(lastOrderId.toNumber());
+        }
+
+        for (var i = 0; i < orderIds.length; i++) {
+          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          assert(orderIds[i] === orderId.toNumber());
+          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
+          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() + 1)) === nex.toNumber());
+          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
+          assert(i * priceMultiplier === price.toNumber());
+          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
+          assert(i * volumeMultiplier === volume.toNumber());
+        }
+      })).not.to.be.rejected;
+    });
+
+    it('insert bids with price in descending order - should work', function() {
+      assert(producers.length >= 10);
+      return expect(co(function*() {
+        var orderIds = [];
+        for (var i = 9; i >= 0; i--) {
+          yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
+          var lastOrderId = yield etherex.getOrderIdLastOrder.call();
+          orderIds.unshift(lastOrderId.toNumber());
+        }
+
+        for (var i = 0; i < orderIds.length; i++) {
+          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          assert(orderIds[i] === orderId.toNumber());
+          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
+          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() - 1)) === nex.toNumber());
+          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
+          assert(i * priceMultiplier === price.toNumber());
+          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
+          assert(i * volumeMultiplier === volume.toNumber());
+        }
+      })).not.to.be.rejected;
     });
   });
 
-  describe('#determineReservePrice', function() {
-    it('Correctness of determining the reserve price', function(done) {
-      done();
-    });
-  });
+  // it('#submitBid storage check', function(done) {
+  //   //TODO adding random bids from random consumers
+  //   //console.log(etherex.minBid);
+  //   done();
+  // });
 
-  describe('#settle', function() {
-    it('Correctness of settleing', function(done) {
-      done();
-    });
-  });
+  // describe('#matching', function() {
+  //   it('Matching should be done correctly (dependant on the algorithm)', function(done) {
+  //       done();
+  //     });
+  // });
+
+  // describe('#updateState', function() {
+  //   it('State should update correctly dependant on blocks', function(done) {
+  //     done();
+  //   });
+  // });
+
+  // describe('#determineReservePrice', function() {
+  //   it('Correctness of determining the reserve price', function(done) {
+  //     done();
+  //   });
+  // });
+
+  // describe('#settle', function() {
+  //   it('Correctness of settleing', function(done) {
+  //     done();
+  //   });
+  // });
 });

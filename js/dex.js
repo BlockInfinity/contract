@@ -89,7 +89,7 @@ function save_order(_type, _ownerid, _volume, _price) {
   if (!_ownerid) {
     throw new Error('_ownerid missing');
   }
-  // check onwer is known
+  // check if owner is known
   // TODO(ms): allow multiple orders
   if (_ownerid in tmpowners) {
     throw new Error('owner with _ownerid ' + _ownerid + ' already submitted an order.');
@@ -106,9 +106,11 @@ function save_order(_type, _ownerid, _volume, _price) {
     throw new Error('order with id ' + order_id + ' already stored.');
   };
 
-  // validation done, process order
+  ///////
+  // validation all ok, process order
+  ///////
 
-  // save owner
+  // set owner
   tmpowners[_ownerid] = {};
   // set collateral
   colleteral[_ownerid] = INITIAL_COLLATERAL;
@@ -122,7 +124,7 @@ function save_order(_type, _ownerid, _volume, _price) {
   };
 
   var Pointer = {
-    order_id: undefined,
+    order_id: order_id,
     next_order_id: undefined
   };
 
@@ -139,10 +141,9 @@ function save_order(_type, _ownerid, _volume, _price) {
 
   // ask orderbook is aufsteigend sortiert
   if (_type === 'ASK') {
-    ask_orderbook[order_id] = Pointer;
     // order_id kann schon gesetzt werden
     // -> next_order_id wird später gesetzt
-    ask_orderbook[order_id].order_id = order_id;
+    ask_orderbook[order_id] = Pointer;
 
     // Fall 1: es sind noch keine orders vorhanden
     if (!lowest_ask_id) {
@@ -176,10 +177,9 @@ function save_order(_type, _ownerid, _volume, _price) {
 
   // bid orderbook is absteigend sortiert
   if (_type === 'BID') {
-    bid_orderbook[order_id] = Pointer;
     // order_id kann schon gesetzt werden
     // -> next_order_id muss im folgenden bestimmt werden
-    bid_orderbook[order_id].id = order_id;
+    bid_orderbook[order_id] = Pointer;
 
     // Fall 1: es sind noch keine orders vorhanden
     if (!orders[highest_bid_id]) {
