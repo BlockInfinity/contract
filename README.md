@@ -12,14 +12,26 @@
      - Code has been peer-reviwed by at least one other team member
      - Code is fully tested
 
-# Run solidity tests
+# Testing of JavaScript Code
+
+- Put test code in same directory as the code to be tested
+- Name test code filename.spec.js
+
+## Testing
+
+- $ mocha ./../filename.spec.js
+
+# Testing of Solidity Code
+
+- Describe each test as accurate as possible
 
 ## Prerequisites
 
 - Install Ethereum RPC client https://github.com/ethereumjs/testrpc
+- Put test code in directory "./dex/test"
 
 ## Testing
 
-- Start Ethereum RPC client, e.g. 1000 accounts: $ testrpc --accounts 1000
-- cd ./dex
-- truffle test
+- $ testrpc --accounts 1000 (Start Ethereum RPC client, e.g. 1000 accounts)
+- $ cd ./dex
+- $ truffle test
