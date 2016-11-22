@@ -1,5 +1,11 @@
+# Run solidity tests
 
-·šµè¬²çŸ¢·šrZ²Cë¢
-Úšh§‚Ö¬’Ä¶ËZµëhˆ§ƒ^ëŞ¯*.²Ö«µçp¢¹"
-'jÊ^r'âqËZ²D¶ËZµëh‰Ş‰ú'zÖ¬’È¬~)â²çâ+b¢z~)â²
-‡^…«yéézºŞ¾'°yÖòjÙ^jÛ(ê-…êæzfŞ¬*z+-zË^u§²‰bv+rµë-°úŞ­ê®ŠÈ­zÂ'²Ö¥”Kaz·®™ÂrXØm¶›?ş­†æÜ¢oŞ¶«zé£³û^²Úéq7¬¶)àJÖ«´Kaz·®™ÂrX× ×M4iÇ(º{lµë-®—qÊ.Û5ÓMw÷^ÆÚî}ù^µë-
+## Prerequisites
+
+- Install Ethereum RPC client https://github.com/ethereumjs/testrpc
+
+## Testing
+
+- Start Ethereum RPC client, e.g. 1000 accounts: $ testrpc --accounts 1000
+- cd ./dex
+- truffle test
