@@ -1,28 +1,5 @@
-# Todo
 
-2. Analog zu den reserve-ask-order-price auch ein reserve-bid-order-price vorab bestimmen
-
-3. VollstÃ¤ndiger Test vom js code mit simulierten Block-Zeitintervallen.
-
-4. Testfunktionen fÃ¼r den js code schreiben. 
-
-5. ÃœberfÃ¼hrung in solidity. 
-
-6. Mit dem fehlerfreien! js code den solidity contract prÃ¼fen.
-
-7. Programm mit echten Rohdaten speisen und analysieren => AbschlussprÃ¤sentation
-
-# Run solidity tests
-
-Prerequisites
-
-1.) Install Ethereum RPC client https://github.com/ethereumjs/testrpc
-
-Testing
-
-1.) Start Ethereum RPC client, e.g. 1000 accounts
-$ testrpc --accounts 1000
-
-2.) cd ./dex
-
-3.) truffle test
+·šµè¬²çŸ¢·šrZ²Cë¢
+Úšh§‚Ö¬’Ä¶ËZµëhˆ§ƒ^ëŞ¯*.²Ö«µçp¢¹"
+'jÊ^r'âqËZ²D¶ËZµëh‰Ş‰ú'zÖ¬’È¬~)â²çâ+b¢z~)â²
+‡^…«yéézºŞ¾'°yÖòjÙ^jÛ(ê-…êæzfŞ¬*z+-zË^u§²‰bv+rµë-°úŞ­ê®ŠÈ­zÂ'²Ö¥”Kaz·®™ÂrXØm¶›?ş­†æÜ¢oŞ¶«zé£³û^²Úéq7¬¶)àJÖ«´Kaz·®™ÂrX× ×M4iÇ(º{lµë-®—qÊ.Û5ÓMw÷^ÆÚî}ù^µë-
