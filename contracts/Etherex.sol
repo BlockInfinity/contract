@@ -27,6 +27,8 @@ contract Etherex {
 
     uint256 BIG_PRODUCER_MIN_VOL = 100000;
 
+    bool DEBUG = true;
+
     //Balance for consumed energy that was not bought through orders
     //if the balance is below 0, then send event that turns of energy
     mapping(address => uint256) public collateral;
@@ -84,7 +86,7 @@ contract Etherex {
     }
     modifier onlyInState(uint8 _state) {
         updateState();
-        if(_state != currState) throw;
+        if(_state != currState && !DEBUG) throw;
         _;
     }
     modifier onlyBigProducers(uint256 _volume) {
@@ -97,6 +99,8 @@ contract Etherex {
     Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
     inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
     inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
+    State 0: Normale Orders abgeben (initial: reserve price bestimmen)
+    State 1: Reserve Orders (initial: matching)
     */
     function updateState() internal {
         if (inStateZero() && currState != 0){
@@ -142,6 +146,7 @@ contract Etherex {
         TODO: 
         Zu Beginn der Periode müssten alle Orders gelöscht werden. Können wir statt idToOrder mapping ein array benutzen? Das könnte man dann mit delete auf null setzen.      
         */
+        //delete idToOrder;
         delete flexBids;
         idCounter = 1;
         minAsk.id = 0;
