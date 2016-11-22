@@ -14,7 +14,7 @@ contract Etherex {
         uint256 nex;
         address owner;
         uint256 volume;
-        uint256 price;
+        int256 price;
     }
 
     struct Match {
@@ -43,7 +43,7 @@ contract Etherex {
     bool isMatchingDone = false;
         
     Order public minAsk = Order(0,0,0,0,0);
-    Order public minBid = Order(0,0,0,0,0);
+    Order public maxBid = Order(0,0,0,0,0);
 
     Order minReserveAsk = Order(0,0,0,0,0);
 
@@ -146,8 +146,8 @@ contract Etherex {
         idCounter = 1;
         minAsk.id = 0;
         minAsk.nex = 0;
-        minBid.id = 0;
-        minBid.nex = 0;
+        maxBid.id = 0;
+        maxBid.nex = 0;
     }
     
     //////////////////////////
@@ -179,208 +179,185 @@ contract Etherex {
         flexBids.push(bid);
     }
 
-    //todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
-    function submitBid(uint256 _price, uint256 _volume) /*onlyUsers()*/ {
+
+
+    function test_submitAsk(){
+        submitAsk(1,1);
+        submitAsk(6,2);
+        submitAsk(8,3);
+        submitAsk(4,3);
+        submitAsk(2,5);
+        submitAsk(12,5);
+    }
+
+    function test_submitBid(){
+        submitBid(1,1);
+        submitBid(6,2);
+        submitBid(8,3);
+        submitBid(4,3);
+        submitBid(2,5);
+        submitBid(12,5);
+    }
+
+    function save_order(bytes32 _type, int256 _price, uint256 _volume) {
         // allocate new order
-        Order memory bid = Order(idCounter++, 0, msg.sender, _volume, _price);
+        Order memory curr_order = Order(idCounter++, 0, msg.sender, _volume, _price);
+
+        // temporär wird hier der order struct maxBid oder minAsk abgelegt.
+        Order memory best_order;            
+
+        // dient der Invertierung vom Vergleichszeichen um aufsteigende und absteigende Reihenfolge in einer Funktion zu realisieren.
+        int8 ascending = 0;
+
+        if (_type == "ASK"){
+            best_order = minAsk;
+            ascending = 1;  
+            
+        } else if (_type == "BID"){
+            best_order = maxBid;
+            ascending = -1;
+        }
 
         // save and return if this the first bid
-        if (minBid.id == 0) {
-            idToOrder[bid.id] = bid;
-            minBid = bid;
-            return;
+        if (best_order.id == 0) {
+            idToOrder[curr_order.id] = curr_order;
+            best_order = curr_order;
+            
+        } else {
+            // iterate over list till same price encountered
+            uint256 curr = best_order.id;
+            uint256 prev = 0;
+            while ((ascending*curr_order.price) > (ascending*idToOrder[curr].price) && curr != 0) {
+                prev = curr;
+                curr = idToOrder[curr].nex;
+            }
+
+            // update pointer 
+            curr_order.nex = curr;
+    
+            // insert order
+            idToOrder[curr_order.id] = curr_order;
+    
+            // curr_order added at the end
+            if (curr_order.nex == best_order.id) {
+                best_order = curr_order;
+                
+            // at least one prev order exists
+            } else {
+                idToOrder[prev].nex = curr_order.id;
+            }
         }
         
-        // iterate over list till same price encountered
-        uint256 curr = minBid.id;
-        uint256 prev = 0;
-        while (bid.price > idToOrder[curr].price && curr != 0) {
-            prev = curr;
-            curr = idToOrder[curr].nex;
-        }
-
-        // update pointer 
-        bid.nex = curr;
-
-        // insert bid
-        idToOrder[bid.id] = bid;
-
-        // bid added at the beginning
-        if (bid.nex == minBid.id) {
-            minBid = bid;
-        // at least one prev order exists
-        } else {
-            idToOrder[prev].nex = bid.id;
+        // best orders werden im storage geupdated
+        if (_type == "ASK"){
+            minAsk = best_order;      
+        } else if (_type == "BID"){
+            maxBid = best_order;        
         }
     }
+
+    //todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
+    //todo (mg): prüfen ob ausreichend ether mitgeschickt wurde
+    function submitBid(int256 _price, uint256 _volume) /*onlyUsers()*/ {
+        save_order("BID",_price,_volume);
+    }
+
     
     // calculate min ask to satisfy flexible bids on the way?
-    // todo(ms): remove code redudancy
-    function submitAsk(uint256 _price, uint256 _volume) onlySmartMeters() {
-        // allocate new order
-        Order memory ask = Order(idCounter++, 0, msg.sender, _volume, _price);
-
-        // save and return if this the first ask
-        if (minAsk.id == 0) {
-            idToOrder[ask.id] = ask;
-            minAsk = ask;
-            return;
-        }
-        
-        // iterate over list till same price encountered
-        uint256 curr = minAsk.id;
-        uint256 prev = 0;
-        while (ask.price > idToOrder[curr].price && curr != 0) {
-            prev = curr;
-            curr = idToOrder[curr].nex;
-        }
-
-        // update pointer 
-        ask.nex = curr;
-
-        // insert ask
-        idToOrder[ask.id] = ask;
-
-        // ask added at the beginning
-        if (ask.nex == minAsk.id) {
-            minAsk = ask;
-        // at least one prev order exists
-        } else {
-            idToOrder[prev].nex = ask.id;
-        }
+    function submitAsk(int256 _price, uint256 _volume) /*onlyUsers()*/  {
+        save_order("ASK",_price,_volume);
     } 
     
     //Producer can submit ask if he is able to supply two times the average needed volume of
     //electricity
-    function submitReserveAsk(uint256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyBigProducers(_volume){
-
-        Order memory reserveAsk = Order(idCounter++, 0, msg.sender, _volume, _price);
-        
-        //Iterate over list till same price encountered
-        Order memory curr = minReserveAsk;
-        Order memory prev;
-        prev.nex = minReserveAsk.id;
-
-        if(minReserveAsk.id == 0) {
-            minReserveAsk = reserveAsk;
-            return;
-        }
-
-        while(reserveAsk.price > curr.price && curr.id != 0) {
-            curr=n(curr);
-            prev = n(prev);
-        }
-        reserveAsk.nex = curr.id;
-        prev.nex = reserveAsk.id;
-        bind(prev, reserveAsk, curr);
-        if(reserveAsk.nex == minReserveAsk.id) {
-            minReserveAsk = reserveAsk;
-        }
+    function submitReserveAsk(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyBigProducers(_volume){
+        save_order("ASK",_price,_volume);
     }
 
-    //TODO Magnus Has to be automatically called from the blockchain
-    //Currently without accumulating, does accumulating make sense?
-    function matching(){
+    // TODO: von Alex den matching algorithmus implementieren. Hier steht glaube eine alternative Variante? 
+     function matching(){
         
-        Order memory prevBid;
-        Order memory prevAsk;
-        Order memory currBid = minBid;
-        Order memory currAsk = minAsk;
-        uint tmp;
+    //     Order memory prevBid;
+    //     Order memory prevAsk;
+    //     Order memory currBid = maxBid;
+    //     Order memory currAsk = minAsk;
+    //     uint tmp;
         
-        //Solve flexible bids first
-        uint256 askVolume = 0;
-        uint256 price = 0;
-        while(askVolume < flexBidVolume && currAsk.id != 0) {       
-            askVolume += currAsk.volume;
-            price = currAsk.price;
-            currAsk = n(currAsk);
-        }
+    //     //Solve flexible bids first
+    //     uint256 askVolume = 0;
+    //     uint256 price = 0;
+    //     while(askVolume < flexBidVolume && currAsk.id != 0) {       
+    //         askVolume += currAsk.volume;
+    //         price = currAsk.price;
+    //         currAsk = n(currAsk);
+    //     }
 
-        currAsk = minAsk;
-        //Wouldnt it be fair that all of them go to the aftermarket
-        //instead of only the last one? Round-robin too much?
-        for(uint i = 0; i < flexBids.length && currAsk.id != 0; i++ ) {
-            if(currAsk.volume > flexBids[i].volume) {
-                matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-                currAsk.volume -= flexBids[i].volume;
-            }else if(currAsk.volume < flexBids[i].volume) {
-                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-                flexBids[i].volume -= currAsk.volume;
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk;
-                i-=1;
-            } else {
-                matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk; 
-            }
-        }
-        //Matching of bids and asks with fixed price
-        //Iterate till you come to the end of ask or bid lists
-        while(currAsk.id != 0 && currBid.id != 0) {
+    //     currAsk = minAsk;
+    //     //Wouldnt it be fair that all of them go to the aftermarket
+    //     //instead of only the last one? Round-robin too much?
+    //     for(uint i = 0; i < flexBids.length && currAsk.id != 0; i++ ) {
+    //         if(currAsk.volume > flexBids[i].volume) {
+    //             matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
+    //             currAsk.volume -= flexBids[i].volume;
+    //         }else if(currAsk.volume < flexBids[i].volume) {
+    //             matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
+    //             flexBids[i].volume -= currAsk.volume;
+    //             prevAsk = currAsk;
+    //             currAsk=n(currAsk);
+    //             delete prevAsk;
+    //             i-=1;
+    //         } else {
+    //             matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
+    //             prevAsk = currAsk;
+    //             currAsk=n(currAsk);
+    //             delete prevAsk; 
+    //         }
+    //     }
+    //     //Matching of bids and asks with fixed price
+    //     //Iterate till you come to the end of ask or bid lists
+    //     while(currAsk.id != 0 && currBid.id != 0) {
 
-            //Round robin so that everyone gets something?
-            if(currAsk.volume > currBid.volume) {
-                //Delete the bid
-                matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner, block.timestamp));
-                currAsk.volume -= currBid.volume;
-                prevBid = currBid;
-                currBid=n(currBid);
-                delete prevBid;
+    //         //Round robin so that everyone gets something?
+    //         if(currAsk.volume > currBid.volume) {
+    //             //Delete the bid
+    //             matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner, block.timestamp));
+    //             currAsk.volume -= currBid.volume;
+    //             prevBid = currBid;
+    //             currBid=n(currBid);
+    //             delete prevBid;
 
-            } else if(currAsk.volume < currBid.volume) {
-                //Delete the ask
-                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
-                currBid.volume -= currAsk.volume;
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk; 
-            } else {
-                //Delete both bid and ask
-                matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
-                prevAsk = currAsk;
-                currAsk=n(currAsk);
-                delete prevAsk;
-                prevBid = currBid;
-                currBid=n(currBid);
-                delete prevBid;
-            }
+    //         } else if(currAsk.volume < currBid.volume) {
+    //             //Delete the ask
+    //             matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
+    //             currBid.volume -= currAsk.volume;
+    //             prevAsk = currAsk;
+    //             currAsk=n(currAsk);
+    //             delete prevAsk; 
+    //         } else {
+    //             //Delete both bid and ask
+    //             matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
+    //             prevAsk = currAsk;
+    //             currAsk=n(currAsk);
+    //             delete prevAsk;
+    //             prevBid = currBid;
+    //             currBid=n(currBid);
+    //             delete prevBid;
+    //         }
 
 
-        }
-        minAsk.id = 0;
-        minBid.id = 0;
+    //     }
+    //     minAsk.id = 0;
+    //     maxBid.id = 0;
         
-        isMatchingDone = true;
-        //What remains remains...
-    }
+    //     isMatchingDone = true;
+    //     //What remains remains...
+     }
+    
 
-    //Settlement function called by smart meter, the user is checked if he payed enough
-    //for electricity
+    //Settlement function called by smart meter
     function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters() {
 
-        uint256 payedForVolume = 0;
-        address consumer = smartMeterToUser[msg.sender];
-        for(uint i=0; i < matches.length; i++) {
-            if(matches[i].bidOwner == consumer) {
-                payedForVolume+= matches[i].volume;
-                //Check if the consumer has enough to pay, then pay
-                if(matches[i].bidOwner.balance >= matches[i].price * matches[i].volume){
-                    //Send amount
-                } else {
-                    throw;
-                }
-            }
-        }
-
-        //If he did not buy enough electricity
-        if (payedForVolume < _consumedVolume) {
-            //Pay for remaining electricity
-            uint256 price = determineReservePrice();
-        }
+  
     }
 
     //TODO Magnus time controlled
@@ -388,20 +365,7 @@ contract Etherex {
         
     }
 
-    // Helper functions, mainly for testing purposes
-    function getOrderPropertyById(uint256 _orderId, uint _property) returns(uint256) {
-        if (_property == 0) {
-            return idToOrder[_orderId].id;
-        } else if (_property == 1) {
-            return idToOrder[_orderId].nex;
-        } else if (_property == 2) {
-            return idToOrder[_orderId].price;
-        } else if (_property == 3) {
-            return idToOrder[_orderId].volume;
-        } else {
-            return 0;
-        }
-    }
+
 
     function getOrderIdLastOrder() returns(uint256) {
         if (idCounter == 1) {
@@ -409,4 +373,58 @@ contract Etherex {
         }
         return idCounter-1;
     }
+
+        /*
+    Returns ordered list of bid orders 
+    author: Magnus
+    */
+    int256[] bidQuotes;
+    uint256[] bidAmounts;
+    function getBidOrders() constant returns (int256[] rv1,uint256[] rv2) {
+        uint256 id_iter_bid = maxBid.id;
+        bidQuotes = rv1;
+        bidAmounts = rv2;
+
+        while (idToOrder[id_iter_bid].volume != 0){
+            bidAmounts.push(idToOrder[id_iter_bid].volume);
+            bidQuotes.push(idToOrder[id_iter_bid].price);
+            id_iter_bid = idToOrder[id_iter_bid].nex;
+        }
+        return(bidQuotes,bidAmounts);
+    }
+
+     /*
+    Returns ordered list of ask orders 
+    author: Magnus
+    */
+    int256[] askQuotes;
+    uint256[] askAmounts;
+    function getAskOrders() constant returns (int256[] rv1,uint256[] rv2){
+        askQuotes = rv1;
+        askAmounts = rv2;
+        uint256 id_iter_ask = minAsk.id;
+        while (idToOrder[id_iter_ask].volume != 0){
+            askQuotes.push(idToOrder[id_iter_ask].price);
+            askAmounts.push(idToOrder[id_iter_ask].volume);
+            id_iter_ask = idToOrder[id_iter_ask].nex;
+        }
+        return(askQuotes,askAmounts);
+    }
+
+    // Helper functions, mainly for testing purposes
+    // TODO: Ich habe den Preis nun als int256 geklariert, deswegen wird hier ein error geworfen. Ausbessern! 
+    // function getOrderPropertyById(uint256 _orderId, uint _property) returns(uint256) {
+    //     if (_property == 0) {
+    //         return idToOrder[_orderId].id;
+    //     } else if (_property == 1) {
+    //         return idToOrder[_orderId].nex;
+    //     } else if (_property == 2) {
+    //         return idToOrder[_orderId].price;
+    //     } else if (_property == 3) {
+    //         return idToOrder[_orderId].volume;
+    //     } else {
+    //         return 0;
+    //     }
+    // }
+
 }
