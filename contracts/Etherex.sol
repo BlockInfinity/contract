@@ -89,7 +89,7 @@ contract Etherex {
         if(_state != currState && !DEBUG) throw;
         _;
     }
-    modifier onlyBigProducers(uint256 _volume) {
+    modifier onlyReserveUsers(uint256 _volume) {
         if (_volume <  BIG_PRODUCER_MIN_VOL) throw;
         _;
     }
@@ -185,7 +185,6 @@ contract Etherex {
     }
 
 
-
     function test_submitAsk(){
         submitAsk(1,1);
         submitAsk(6,2);
@@ -275,7 +274,7 @@ contract Etherex {
     
     //Producer can submit ask if he is able to supply two times the average needed volume of
     //electricity
-    function submitReserveAsk(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyBigProducers(_volume){
+    function submitReserveAsk(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyReserveUsers(_volume){
         save_order("ASK",_price,_volume);
     }
 

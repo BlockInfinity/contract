@@ -10,7 +10,7 @@ Communication with smart meter.
 The order of the functions has to be determined.
 
 */
-contract Etherex {
+contract EtherexTMP {
 
     struct Match {
       uint256 volume;
