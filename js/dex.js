@@ -1,6 +1,6 @@
 'use strict';
 
-const _ = require('lodash');
+// const _ = require('lodash'); // require funktioniert nur auf server side, kann damit nicht im browser debuggen.
 
 // global variables
 
@@ -92,7 +92,8 @@ function save_order(_type, _ownerid, _volume, _price) {
   // check if owner is known
   // TODO(ms): allow multiple orders
   if (_ownerid in tmpowners) {
-    throw new Error('owner with _ownerid ' + _ownerid + ' already submitted an order.');
+    //throw new Error('owner with _ownerid ' + _ownerid + ' already submitted an order.'); 
+    console.error('owner with _ownerid ' + _ownerid + ' already submitted an order.');  
   }
   if (!_volume) {
     throw new Error('_volume missing');
@@ -175,7 +176,7 @@ function save_order(_type, _ownerid, _volume, _price) {
     }
   }
 
-  // bid orderbook is absteigend sortiert
+  // bid orderbook ist absteigend sortiert
   if (_type === 'BID') {
     // order_id kann schon gesetzt werden
     // -> next_order_id muss im folgenden bestimmt werden
@@ -225,8 +226,9 @@ function getBidOrders() {
 }
 
 function printBidOrders() {
-  for (order in getBidOrders()) {
-    onsole.log('Price: ' + order.price + ' | Volume: ' + order.volume + ' | Owner: ' + order.ownerid);
+  var bidOrderBook = getBidOrders();
+  for (i in bidOrderBook) {
+    console.log('Price: ' + bidOrderBook[i].price + ' | Volume: ' + bidOrderBook[i].volume + ' | Owner: ' + bidOrderBook[i].ownerid);
   }
 }
 
@@ -241,8 +243,9 @@ function getAskOrders() {
 }
 
 function printAskOrders() {
-  for (order in getAskOrders()) {
-    console.log('Price: ' + order.price + ' | Volume: ' + order.volume + ' | Owner: ' + order.ownerid);
+  var askOrderBook = getAskOrders();
+  for (i in askOrderBook) {
+    console.log('Price: ' + askOrderBook[i].price + ' | Volume: ' + askOrderBook[i].volume + ' | Owner: ' + askOrderBook[i].ownerid);
   }
 }
 
@@ -417,12 +420,14 @@ function getMatchedAskOrders() {
   return matchedAskOrders;
 }
 
+
 function printMatchedAskOrders() {
   var matchedAskOrders = getMatchedAskOrders();
-  for (matchedAskOrder in matchedAskOrders) {
-    console.log('Period: ', matchedAskOrder.period, ' | Owner: ', matchedAskOrder.ownerid, ' | OfferedVol: ', matchedAskOrder.offeredVolume);
+  for (i in matchedAskOrders) {
+    console.log('Period: ', matchedAskOrders[i].period, ' | Owner: ', matchedAskOrders[i].ownerid, ' | OrderedVol: ', matchedAskOrders[i].orderedVolume);
   }
 }
+
 
 function getMatchedBidOrders() {
   var matchedBidOrders = [];
@@ -436,8 +441,8 @@ function getMatchedBidOrders() {
 
 function printMatchedBidOrders() {
   var matchedBidOrders = getMatchedBidOrders();
-  for (matchedBidOrder in matchedBidOrders) {
-    console.log('Period: ', matchedBidOrder.period, ' | Owner: ', matchedBidOrder.ownerid, ' | OrderedVol: ', matchedBidOrder.orderedVolume);
+  for (i in matchedBidOrders) {
+    console.log('Period: ', matchedBidOrders[i].period, ' | Owner: ', matchedBidOrders[i].ownerid, ' | OrderedVol: ', matchedBidOrders[i].orderedVolume);
   }
 }
 

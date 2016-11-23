@@ -25,7 +25,7 @@ contract Etherex {
         uint256 timestamp;
     }
 
-    uint256 BIG_PRODUCER_MIN_VOL = 100000;
+    uint256 RESERVE_PRODUCER_MIN_VOL = 100000;
 
     bool DEBUG = true;
 
@@ -90,7 +90,7 @@ contract Etherex {
         _;
     }
     modifier onlyReserveUsers(uint256 _volume) {
-        if (_volume <  BIG_PRODUCER_MIN_VOL) throw;
+        if (_volume <  RESERVE_PRODUCER_MIN_VOL) throw;
         _;
     }
 
@@ -175,7 +175,7 @@ contract Etherex {
         _prev.nex = n(_curr).id;
         delete _curr;
     } 
-
+    
     // put flex bid in separate flex bid pool
     function submitFlexBid(uint256 _volume) {
         Order memory bid;
@@ -364,10 +364,7 @@ contract Etherex {
   
     }
 
-    //TODO Magnus time controlled
-    function determineReservePrice() returns (uint256) {
-        
-    }
+ 
 
 
 

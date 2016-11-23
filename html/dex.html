@@ -2,6 +2,7 @@
 <html>
     <head>
         <script src="../js/dex.js"></script>
+        <script src="../node_modules/lodash/lodash.js"></script>
     </head>
     <body>
     	<script>
@@ -40,12 +41,12 @@
 		        console.log("\n######################################");
 		        console.log("############# Ask Orders #############");
 		        console.log("######################################")
-		        getAskOrders();
+		        printAskOrders();
 
 		        console.log("\n######################################");
 		        console.log("############## Bid Orders ############");
 		        console.log("######################################")
-		        getBidOrders();
+		        printBidOrders()
 		    }
 
 		    function test_submitReserve(users) {
@@ -64,7 +65,7 @@
 		        console.log("\n######################################");
 		        console.log("########## Reserve Ask Orders ########");
 		        console.log("######################################")
-		        getAskOrders();
+		        printAskOrders();
 		    }
 
 		    // TODO: reserve settle orders testen einzelnd und dann systematisch. ask bid order emitents verhalten sich ehrlich und die differenz wird von reserve übernommen, dann  sollte alles im schnitt null sein ???!?!!?
