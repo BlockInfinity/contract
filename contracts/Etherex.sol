@@ -364,9 +364,53 @@ contract Etherex {
   
     }
 
- 
+    uint256 period = 0; // todo: needs to be upedated when state is changed
+    uint256 MIN_RESERVE_VOLUME = 1000;  // todo: statt konstantem wert, durchschnittliches maximum eines Haushaltes iterativ berechnen und das produkt mit #haushalte als MIN_RESERVE_VOLUME setzen
 
 
+
+    mapping (uint256 => mapping (address =>  uint256)) public matchedReserveOrders;   // maps volume to period and owner
+    mapping (uint256 => int256) public reservePriceForPeriod;                        // maps reserveprice to period
+
+
+    //TODO Magnus time controlled
+    function determineReservePrice() returns (uint256) {
+        uint256 cumAskReserveVol = 0;
+        int256 reserve_price = minAsk.price;
+        bool isFound = false;
+        uint256 ask_id_iter = minAsk.id;
+
+        while(!isFound) {
+            while(idToOrder[ask_id_iter].price == reserve_price){
+                uint256 volume = idToOrder[ask_id_iter].volume;     // redundant, aber übersichtlicher
+                address owner = idToOrder[ask_id_iter].owner;
+
+                cumAskReserveVol += volume;
+                matchedReserveOrders[period][owner] = volume;
+
+                uint256 next_order = idToOrder[ask_id_iter].nex;
+                if (next_order != 0){
+                    ask_id_iter = next_order;
+                } else {
+                    isFound = true;     // Mindestmenge an Energie konnten nicht erreicht werden, da selbst beim höchsten Preis nicht ausreichen Energie vorhanden war
+                    break;
+                }
+            }
+
+            if (cumAskReserveVol >= MIN_RESERVE_VOLUME) {
+              isFound = true;
+            } else {
+              reserve_price = idToOrder[ask_id_iter].price;
+            }        
+        }
+        // idToOrder löschen? 
+
+        reservePriceForPeriod[period] = reserve_price;
+
+        debug_determineReservePrice("determineReservePrice Method ended.",reserve_price,cumAskReserveVol);
+    }
+
+    event debug_determineReservePrice(string log,int256 reserve_price, uint256 cumAskReserveVol);
 
     function getOrderIdLastOrder() returns(uint256) {
         if (idCounter == 1) {
