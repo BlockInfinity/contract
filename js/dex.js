@@ -70,31 +70,44 @@ function submitReserveAsk(_owner, _volume, _price) {
     if (!_price) {
         throw new Error('_price missing');
     }
-    new_save_order("ASK", _price, _volume, _owner);
+    return new_save_order("ASK", _price, _volume, _owner);
 }
 
-    var idCounter = 1;
+var idCounter = 1;
 
-    var minAsk = {
-        id: 0,
-        nex: 0,
-        owner: 0,
-        volume: 0,
-        price: 0,
-    };
+var minAsk = {
+    id: 0,
+    nex: 0,
+    owner: 0,
+    volume: 0,
+    price: 0,
+};
 
-    var maxBid = {
-        id: 0,
-        nex: 0,
-        owner: 0,
-        volume: 0,
-        price: 0,
-    };
+var maxBid = {
+    id: 0,
+    nex: 0,
+    owner: 0,
+    volume: 0,
+    price: 0,
+};
 
-    var idToOrder = {};
+var idToOrder = {};
+
+
 
 
 function new_save_order(_type, _price, _volume, _owner) {
+
+    // es darf pro periode stets nur eine order pro user abgegeben werden
+    if (_owner in tmpowners) { // in solidity einfach im mapping auf 0 oder 1 prüfen
+        //throw new Error('owner with _owner ' + _owner + ' already submitted an order.'); 
+        //console.error('owner with _owner ' + _owner + ' already submitted an order.');
+        return false;
+    }
+
+    tmpowners[_owner] = {};
+
+
     var curr_order = {
         id: idCounter++,
         nex: 0,
@@ -159,6 +172,8 @@ function new_save_order(_type, _price, _volume, _owner) {
     } else if (_type == "BID") {
         maxBid = best_order;
     }
+
+    return true;
 }
 
 
@@ -315,6 +330,7 @@ function getBidOrders() {
 
 function printBidOrders() {
     var bidOrderBook = getBidOrders();
+    console.log("\nBID ORDERBOOK\n\n");
     for (var i in bidOrderBook) {
         console.log('Price: ' + bidOrderBook[i].price + ' | Volume: ' + bidOrderBook[i].volume + ' | Owner: ' + bidOrderBook[i].owner);
     }
@@ -332,10 +348,16 @@ function getAskOrders() {
 
 function printAskOrders() {
     var askOrderBook = getAskOrders();
+    console.log("\nASK ORDERBOOK\n\n");
     for (var i in askOrderBook) {
         console.log('Price: ' + askOrderBook[i].price + ' | Volume: ' + askOrderBook[i].volume + ' | Owner: ' + askOrderBook[i].owner);
     }
 }
+
+var cumAskVol = 0;
+var cumBidVol = 0;
+var matching_price;
+var share;
 
 // matches idToOrder and saves the resulting information in the matchedAskOrderMapping and matchedBidOrderMapping
 // TODO: events rausballern für jeden user dessen idToOrder gematched wurden
@@ -345,22 +367,24 @@ function match() {
         return;
     }
 
-    var cumAskVol = 0;
-    var cumBidVol = 0;
-    var matching_price;
+    cumAskVol = 0;
+    cumBidVol = 0;
+    matching_price = 0;
+
 
     matching_price = idToOrder[minAsk.id].price;
     var isMatched = false;
+    var outOfAskOrders = false;
     var bid_price = idToOrder[maxBid.id].price;
     var iter_ask_id = minAsk.id;
     var id_iter_bid = maxBid.id;
     period++;
 
     while (!isMatched) {
-        while (idToOrder[iter_ask_id].price === matching_price) {
+        while (iter_ask_id != 0 && (idToOrder[iter_ask_id].price === matching_price)) {
+
             var volume = idToOrder[iter_ask_id].volume;
             var owner = idToOrder[iter_ask_id].owner;
-
             cumAskVol += volume;
 
             appendToDoubleMapping(matchedAskOrderMapping, period, owner, {
@@ -371,22 +395,24 @@ function match() {
             if (nex) {
                 iter_ask_id = nex;
             } else {
+                outOfAskOrders = true;
                 break;
             }
+
+
         }
 
         // TODO: iterates each time through the mapping. Find better solution!
         while (idToOrder[id_iter_bid].price >= matching_price) {
             var volume = idToOrder[id_iter_bid].volume;
             var owner = idToOrder[id_iter_bid].owner;
-            var nex = idToOrder[id_iter_bid].nex;
-
             cumBidVol += volume;
 
             appendToDoubleMapping(matchedBidOrderMapping, period, owner, {
                 orderedVolume: volume
             });
 
+            var nex = idToOrder[id_iter_bid].nex;
             id_iter_bid = nex;
             if (!id_iter_bid) {
                 break;
@@ -394,6 +420,8 @@ function match() {
         }
 
         if (cumAskVol >= cumBidVol) {
+            isMatched = true;
+        } else if (outOfAskOrders) {
             isMatched = true;
         } else {
             matching_price = idToOrder[iter_ask_id].price;
@@ -404,31 +432,60 @@ function match() {
     }
 
     // calculates how much energy each producer can release into the grid within the next interval
-    var share = cumBidVol / cumAskVol;
-    for (owner in matchedAskOrderMapping[period]) {
-        matchedAskOrderMapping[period][owner].offeredVolume = matchedAskOrderMapping[period][owner].offeredVolume * share;
+
+    if (cumBidVol < cumAskVol) {
+        share = cumBidVol / cumAskVol;
+        for (owner in matchedAskOrderMapping[period]) {
+            matchedAskOrderMapping[period][owner].offeredVolume = matchedAskOrderMapping[period][owner].offeredVolume * share;
+        }
+
+    } else {
+        share = cumAskVol / cumBidVol;
+        for (owner in matchedBidOrderMapping[period]) {
+            matchedBidOrderMapping[period][owner].orderedVolume = matchedBidOrderMapping[period][owner].orderedVolume * share;
+        }
     }
 
+
+    if (!check_AskShare()) {
+        debugger;
+        throw new Error("Share of Ask orders does not fit")
+    }
     matchingPriceMapping[period] = matching_price;
 
     resetOrders();
 
+}
+
+function printMatchingResult() {
+
     console.log('\n######################################');
     console.log('########### Matching Result ##########');
     console.log('######################################');
-    console.log('Matching price: ', matching_price, ' | Matched Bid Volume: ', cumBidVol, ' | Available Ask Volume: ', cumAskVol, ' | share: ', share);
+    console.log('Matching price: ', matching_price, ' | Bid Volume: ', cumBidVol, ' | Ask Volume: ', cumAskVol, ' | share: ', share);
+
 }
 
 function resetOrders() {
     // both orderbooks need to be deleted
     // idToOrder = {};
-    // maxBid.id = undefined;
-    // minAsk.id = undefined;
+    maxBid = {
+        id: 0,
+        nex: 0,
+        owner: 0,
+        volume: 0,
+        price: 0,
+    };
 
-
-
+    minAsk = {
+        id: 0,
+        nex: 0,
+        owner: 0,
+        volume: 0,
+        price: 0,
+    };
     // the order information itself needs to be deleted
-    // tmpowners = {};
+    tmpowners = {};
 }
 
 // takes a _mapping object and appends a value to the key combination.
@@ -456,12 +513,14 @@ function appendToDoubleMapping(_mapping, _key1, _key2, _value) {
     }
 }
 
+    var cumAskReserveVol = 0;
+    var reserve_price;
+
 // TODO: events rausballern für jeden user dessen idToOrder gematched wurden
 // TODO: auch den Kaufpreis vorab bestimmen
 function determineReservePrice() {
 
-    var cumAskReserveVol = 0;
-    var reserve_price;
+    cumAskReserveVol = 0;
     var isFound = false;
     reserve_price = idToOrder[minAsk.id].price;
     var iter_ask_id = minAsk.id;
@@ -492,9 +551,11 @@ function determineReservePrice() {
         }
     }
 
-
+    resetOrders();
     reservePriceMapping[period] = reserve_price;
+}
 
+function printReserveOrderMatchingResult(){
     console.log('\n######################################');
     console.log('####### Reserve Matching Result ######');
     console.log('######################################');
@@ -502,38 +563,40 @@ function determineReservePrice() {
 }
 
 function getMatchedAskOrders() {
-    var matchedAskOrders = [];
+    var matches = [];
     for (var period in matchedAskOrderMapping) {
         for (var owner in matchedAskOrderMapping[period]) {
-            matchedAskOrders.push({ 'period': period, 'owner': owner, 'offeredVolume': matchedAskOrderMapping[period][owner].offeredVolume });
+            matches.push({ 'period': period, 'owner': owner, 'offeredVolume': matchedAskOrderMapping[period][owner].offeredVolume });
         }
     }
-    return matchedAskOrders;
+    return matches;
 }
 
 
 function printMatchedAskOrders() {
-    var matchedAskOrders = getMatchedAskOrders();
-    for (i in matchedAskOrders) {
-        console.log('Period: ', matchedAskOrders[i].period, ' | Owner: ', matchedAskOrders[i].owner, ' | OrderedVol: ', matchedAskOrders[i].orderedVolume);
+    var matches = getMatchedAskOrders();
+    console.log("\nMatched ASK ORDERBOOK\n\n");
+    for (var i in matches) {
+        console.log('Period: ', matches[i].period, ' | Owner: ', matches[i].owner, ' | OfferedVol: ', matches[i].offeredVolume);
     }
 }
 
 
 function getMatchedBidOrders() {
-    var matchedBidOrders = [];
+    var matches = [];
     for (var period in matchedBidOrderMapping) {
         for (var owner in matchedBidOrderMapping[period]) {
-            matchedBidOrders.push({ 'period': period, 'owner': owner, 'orderedVolume': matchedBidOrderMapping[period][owner].orderedVolume });
+            matches.push({ 'period': period, 'owner': owner, 'orderedVolume': matchedBidOrderMapping[period][owner].orderedVolume });
         }
     }
-    return matchedBidOrders;
+    return matches;
 }
 
 function printMatchedBidOrders() {
-    var matchedBidOrders = getMatchedBidOrders();
-    for (i in matchedBidOrders) {
-        console.log('Period: ', matchedBidOrders[i].period, ' | Owner: ', matchedBidOrders[i].owner, ' | OrderedVol: ', matchedBidOrders[i].orderedVolume);
+    var matches = getMatchedBidOrders();
+    console.log("\nMatched BID ORDERBOOK\n\n");
+    for (var i in matches) {
+        console.log('Period: ', matches[i].period, ' | Owner: ', matches[i].owner, ' | OrderedVol: ', matches[i].orderedVolume);
     }
 }
 
@@ -545,9 +608,9 @@ function settle(_user, _type, _volume, _period) {
         throw new Error('_type is missing');
     }
     let supportedTypes = ['PRODUCER', 'CONSUMER'];
-    if (!_.includes(supportedTypes, _type)) {
-        throw new Error('_type is not supported');
-    }
+    // if (!_.includes(supportedTypes, _type)) {
+    //     throw new Error('_type is not supported');
+    // }
     if (!_volume) {
         console.error('_volume is missing');
     }
@@ -567,7 +630,6 @@ function settle(_user, _type, _volume, _period) {
     };
 
     var success = false;
-
     var user = _user;
     var ordered = 0;
     var offered = 0;
@@ -579,7 +641,7 @@ function settle(_user, _type, _volume, _period) {
     if (_type === 'PRODUCER') {
         if (matchedReserveOrderMapping[_period][user]) {
             if (!matchedReserveOrderMapping[_period][user].offeredVolume) {
-                //console.warn("Position already settled.");
+                console.warn("Position already settled.");
                 return false;
             }
 
@@ -614,7 +676,6 @@ function settle(_user, _type, _volume, _period) {
             //console.log("(Settlement Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+matchingPrice);
             success = true;
         }
-
     }
     // TODO: leute brücksichtigen, welche ohne idToOrder abzugeben strom beziehen. Die müssen irgendwie an den reserve price dran kommen
 
@@ -639,28 +700,202 @@ function settle(_user, _type, _volume, _period) {
             colleteral[user] -= (_volume * reservePrice);
         }
     }
-
     return success;
 }
 
-// var dex = {
-//     submitBidOrder: submitBidOrder,
-//     submitAskOrder: submitAskOrder,
-//     submitReserveAsk: submitReserveAsk,
-//     save_order: save_order,
-//     match: match,
-//     resetOrders: resetOrders,
-//     appendToDoubleMapping: appendToDoubleMapping,
-//     determineReservePrice: determineReservePrice,
-//     getMatchedAskOrders: getMatchedAskOrders,
-//     getMatchedBidOrders: getMatchedBidOrders,
-//     getBidOrders: getBidOrders,
-//     getAskOrders: getAskOrders,
-//     settle: settle
-// };
 
-// if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-//     module.exports = dex;
-// } else {
-//     Object.assign(window, dex);
-// };
+
+
+var consumers = [];
+var producers = [];
+var reserveProviders = [];
+
+
+// function test_submitReserve(users) {
+
+//     for (i = 0; i < users; i++) {
+//         var erzeugung = Math.floor(Math.random() * 300) + 1;
+//         var price = 0;
+//         var owner = Math.floor(Math.random() * users) + users;
+
+//         price = Math.floor(Math.random() * 99) + 1;
+//         if (submitReserveAsk(price, erzeugung, owner)) {
+//             reserveProviders.push(owner);
+//         }
+//     }
+
+//     console.log("\n######################################");
+//     console.log("########## Reserve Ask Orders ########");
+//     console.log("######################################")
+//     printAskOrders();
+// }
+
+// TODO: reserve settle orders testen einzelnd und dann systematisch. ask bid order emitents verhalten sich ehrlich und die differenz wird von reserve übernommen, dann  sollte alles im schnitt null sein ???!?!!?
+var sumConsumed = 0;
+var sumProduced = 0;
+var sumReserved = 0;
+
+var TotalConsumedEnergy = 0;
+
+function test_settle() {
+
+    sumConsumed = 0;
+    sumProduced = 0;
+    sumReserved = 0;
+
+    for (var user in matchedBidOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumConsumed += vol;
+        settle(user, "CONSUMER", matchedBidOrderMapping[period][user].orderedVolume, period);
+    }
+
+    for (user in matchedAskOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumProduced += vol;
+        settle(user, "PRODUCER", matchedAskOrderMapping[period][user].offeredVolume, period);
+    }
+
+    // if (sumProduced < sumConsumed) {
+    //     for (user in reserveProviders) {
+    //         var vol = Math.floor(Math.random() * 10) + 1;
+    //         sumReserved += vol;
+    //         if (sumReserved > (sumConsumed - sumProduced)) {
+    //             sumReserved -= vol;
+    //             vol = (sumConsumed - sumProduced) - sumReserved;
+    //             sumReserved += vol;
+    //         }
+    //         if (vol != 0){
+    //             settle(reserveProviders[user].id, "PRODUCER", reserveProviders[user].vol, period);    
+    //         }
+
+    //     }
+    // }
+
+
+
+    consumers = [];
+    producers = [];
+    reserveProviders = [];
+}
+
+function test_submitReserve(_users) {
+    for (var i = 0; i < _users; i++) {
+        var erzeugung = Math.floor(Math.random() * 300) + 1;
+        var owner = Math.floor(Math.random() * _users) + 100;
+        var price = Math.floor(Math.random() * 99) + 1;
+
+        if (new_save_order("ASK", price, erzeugung, owner)) {
+            reserveProviders.push({ id: owner, vol: erzeugung });
+        }
+    }
+}
+
+function test_submitAsk(_users) {
+    for (var i = 0; i < _users; i++) {
+        var erzeugung = Math.floor(Math.random() * 10) + 1;
+        var owner = Math.floor(Math.random() * _users) + 1;
+        var price = Math.floor(Math.random() * 99) + 1;
+
+        if (new_save_order("ASK", price, erzeugung, owner)) {
+            producers.push({ id: owner, vol: erzeugung });
+        }
+    }
+}
+
+function test_submitBid(_users) {
+    for (var i = 0; i < _users; i++) {
+        var verbrauch = Math.floor(Math.random() * 10) + 1;
+        var maxPrice = 0;
+        var owner = Math.floor(Math.random() * _users) + 1;
+
+        if (Math.random() > 0.3) {
+            maxPrice = Math.floor(Math.random() * 99) + 1;
+        } else {
+            maxPrice = 9999
+        }
+        if (new_save_order("BID", maxPrice, verbrauch, owner)) {
+            consumers.push({ id: owner, vol: verbrauch });
+        }
+    }
+}
+
+function test(_users) {
+    test_submitBid(_users);
+    test_submitAsk(_users);
+    printAskOrders();
+    printBidOrders();
+
+    match();
+    printMatchingResult()
+
+    if (!check_AskShare()) {
+        debugger;
+        throw new Error("Share of Ask orders does not fit")
+    }
+    printMatchedAskOrders();
+    printMatchedBidOrders();
+    test_submitReserve(_users);
+    console.log("Reserve Ask Orderbook")
+    printAskOrders();
+    determineReservePrice();
+    printReserveOrderMatchingResult();
+    test_settle();
+
+    if (!check_colleteral()) {
+        debugger;
+        throw new Error("Cumulative colleteral is not zero")
+    }
+}
+
+function check_AskShare() {
+    var sum = 0;
+    for (var user in matchedAskOrderMapping[period]) {
+        sum += matchedAskOrderMapping[period][user].offeredVolume;
+    }
+    for (var user in matchedBidOrderMapping[period]) {
+        sum -= matchedBidOrderMapping[period][user].orderedVolume;
+    }
+    return (sum == 0 || (sum < 0.001 && sum > -0.001));
+}
+
+
+
+function check_colleteral() {
+    var sum = 0;
+    for (var i in colleteral) {
+        sum += colleteral[i];
+    }
+    return (sum == 0 || (sum < 0.001 && sum > -0.001));
+}
+
+
+var dex = {
+    period:period,
+    matchedAskOrderMapping,matchedAskOrderMapping,
+    matchedBidOrderMapping,matchedBidOrderMapping,
+    test_submitBid: test_submitBid,
+    test_submitAsk: test_submitAsk,
+    test_submitReserve: test_submitReserve,
+    test_settle,
+    submitBidOrder: submitBidOrder,
+    submitAskOrder: submitAskOrder,
+    submitReserveAsk: submitReserveAsk,
+    save_order: save_order,
+    match: match,
+    resetOrders: resetOrders,
+    appendToDoubleMapping: appendToDoubleMapping,
+    determineReservePrice: determineReservePrice,
+    getMatchedAskOrders: getMatchedAskOrders,
+    getMatchedBidOrders: getMatchedBidOrders,
+    getBidOrders: getBidOrders,
+    getAskOrders: getAskOrders,
+    settle: settle,
+    colleteral: colleteral,
+    test: test
+};
+
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+    module.exports = dex;
+} else {
+    Object.assign(window, dex);
+};

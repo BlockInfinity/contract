@@ -8,183 +8,194 @@
 
 <body>
     <script>
-    var consumers = [];
-    var producers = [];
-    var reserveProviders = [];
+    // var consumers = [];
+    // var producers = [];
+    // var reserveProviders = [];
 
-    function random_test(users) {
-        for (i = 0; i < users; i++) {
-            var erzeugung = Math.floor(Math.random() * 10) + 1;
-            var price = 0;
-            var owner = Math.floor(Math.random() * users) + 1;
-
-            price = Math.floor(Math.random() * 99) + 1;
-            if (submitAskOrder(price, erzeugung, owner)) {
-                producers.push(owner);
-            }
-
-        }
-
-        for (i = 0; i < users; i++) {
-            var verbrauch = Math.floor(Math.random() * 10) + 1;
-            var maxPrice = 0;
-            var owner = Math.floor(Math.random() * users) + 1;
-
-            if (Math.random() > 0.3) {
-                maxPrice = Math.floor(Math.random() * 99) + 1;
-            } else {
-                maxPrice = 9999
-            }
-            if (submitBidOrder(maxPrice, verbrauch, owner)) {
-                consumers.push(owner);
-            }
-        }
-
-        console.log("\n######################################");
-        console.log("############# Ask Orders #############");
-        console.log("######################################")
-        printAskOrders();
-
-        console.log("\n######################################");
-        console.log("############## Bid Orders ############");
-        console.log("######################################")
-        printBidOrders()
-    }
-
-    // function test_submitReserve(users) {
-
-    //     for (i = 0; i < users; i++) {
-    //         var erzeugung = Math.floor(Math.random() * 300) + 1;
+    // function random_test(users) {
+    //     for (i = 0; i < users; i++) 
+   //         var erzeugung = Math.floor(Math.random() * 10) + 1;
     //         var price = 0;
-    //         var owner = Math.floor(Math.random() * users) + users;
+    //         var owner = Math.floor(Math.random() * users) + 1;
 
     //         price = Math.floor(Math.random() * 99) + 1;
-    //         if (submitReserveAsk(price, erzeugung, owner)) {
-    //             reserveProviders.push(owner);
+    //         if (submitAskOrder(price, erzeugung, owner)) {
+    //             producers.push(owner);
+    //         }
+
+    //     }
+
+    //     for (i = 0; i < users; i++) {
+    //         var verbrauch = Math.floor(Math.random() * 10) + 1;
+    //         var maxPrice = 0;
+    //         var owner = Math.floor(Math.random() * users) + 1;
+
+    //         if (Math.random() > 0.3) {
+    //             maxPrice = Math.floor(Math.random() * 99) + 1;
+    //         } else {
+    //             maxPrice = 9999
+    //         }
+    //         if (submitBidOrder(maxPrice, verbrauch, owner)) {
+    //             consumers.push(owner);
     //         }
     //     }
 
     //     console.log("\n######################################");
-    //     console.log("########## Reserve Ask Orders ########");
+    //     console.log("############# Ask Orders #############");
     //     console.log("######################################")
     //     printAskOrders();
+
+    //     console.log("\n######################################");
+    //     console.log("############## Bid Orders ############");
+    //     console.log("######################################")
+    //     printBidOrders();
     // }
 
-    // TODO: reserve settle orders testen einzelnd und dann systematisch. ask bid order emitents verhalten sich ehrlich und die differenz wird von reserve übernommen, dann  sollte alles im schnitt null sein ???!?!!?
-    var sumConsumed = 0;
-    var sumProduced = 0;
-    var sumReserved = 0;
+    // // function test_submitReserve(users) {
 
-    var TotalConsumedEnergy = 0;
+    // //     for (i = 0; i < users; i++) {
+    // //         var erzeugung = Math.floor(Math.random() * 300) + 1;
+    // //         var price = 0;
+    // //         var owner = Math.floor(Math.random() * users) + users;
 
-    function test_settle() {
+    // //         price = Math.floor(Math.random() * 99) + 1;
+    // //         if (submitReserveAsk(price, erzeugung, owner)) {
+    // //             reserveProviders.push(owner);
+    // //         }
+    // //     }
 
-        sumConsumed = 0;
-        sumProduced = 0;
-        sumReserved = 0;
+    // //     console.log("\n######################################");
+    // //     console.log("########## Reserve Ask Orders ########");
+    // //     console.log("######################################")
+    // //     printAskOrders();
+    // // }
 
-        for (user in consumers) {
-            var vol = Math.floor(Math.random() * 10) + 1;
-            sumConsumed += vol;
-            settle(consumers[user], "CONSUMER", vol, period);
-        }
+    // // TODO: reserve settle orders testen einzelnd und dann systematisch. ask bid order emitents verhalten sich ehrlich und die differenz wird von reserve übernommen, dann  sollte alles im schnitt null sein ???!?!!?
+    // var sumConsumed = 0;
+    // var sumProduced = 0;
+    // var sumReserved = 0;
 
-        for (user in producers) {
-            var vol = Math.floor(Math.random() * 10) + 1;
-            sumProduced += vol;
-            settle(producers[user], "PRODUCER", vol, period);
-        }
+    // var TotalConsumedEnergy = 0;
 
-        if (sumProduced < sumConsumed) {
-            for (user in reserveProviders) {
-                var vol = Math.floor(Math.random() * 10) + 1;
-                sumReserved += vol;
-                if (sumReserved > (sumConsumed - sumProduced)) {
-                    sumReserved -= vol;
-                    vol = (sumConsumed - sumProduced) - sumReserved;
-                    sumReserved += vol;
-                }
-                settle(reserveProviders[user], "PRODUCER", vol, period);
-            }
-        }
+    // function test_settle() {
+        
+    //     sumConsumed = 0;
+    //     sumProduced = 0;
+    //     sumReserved = 0;
 
+    //     for (user in consumers) {
+    //         var vol = Math.floor(Math.random() * 10) + 1;
+    //         sumConsumed += vol;
+    //         settle(consumers[user], "CONSUMER", vol, period);
+    //     }
 
+    //     for (user in producers) {
+    //         var vol = Math.floor(Math.random() * 10) + 1;
+    //         sumProduced += vol;
+    //         settle(producers[user], "PRODUCER", vol, period);
+    //     }
 
-        consumers = [];
-        producers = [];
-        reserveProviders = [];
-    }
-
-    function test_submitReserve(_users) {
-        for (var i = 0; i < _users; i++) {
-            var erzeugung = Math.floor(Math.random() * 300) + 1;
-            var owner = Math.floor(Math.random() * _users) + 1;
-            var price = Math.floor(Math.random() * 99) + 1;
-
-            new_save_order("ASK", price, erzeugung, owner)
-        }
-    }
-
-    function test_submitAsk(_users) {
-        for (var i = 0; i < _users; i++) {
-            var erzeugung = Math.floor(Math.random() * 10) + 1;
-            var owner = Math.floor(Math.random() * _users) + 1;
-            var price = Math.floor(Math.random() * 99) + 1;
-
-            new_save_order("ASK", price, erzeugung, owner)
-        }
-    }
-
-    function test_submitBid(_users) {
-        for (i = 0; i < _users; i++) {
-            var verbrauch = Math.floor(Math.random() * 10) + 1;
-            var maxPrice = 0;
-            var owner = Math.floor(Math.random() * _users) + 1;
-
-            if (Math.random() > 0.3) {
-                maxPrice = Math.floor(Math.random() * 99) + 1;
-            } else {
-                maxPrice = 9999
-            }
-            new_save_order("BID", maxPrice, verbrauch, owner);
-        }
-    }
-
-    function test(_users) {
-        test_submitBid(_users);
-        test_submitAsk(_users);
-        match();
-        test_submitReserve(_users);
-        determineReservePrice();
-    }
+    //     if (sumProduced < sumConsumed) {
+    //         for (user in reserveProviders) {
+    //             var vol = Math.floor(Math.random() * 10) + 1;
+    //             sumReserved += vol;
+    //             if (sumReserved > (sumConsumed - sumProduced)) {
+    //                 sumReserved -= vol;
+    //                 vol = (sumConsumed - sumProduced) - sumReserved;
+    //                 sumReserved += vol;
+    //             }
+    //             settle(reserveProviders[user], "PRODUCER", vol, period);
+    //         }
+    //     }
 
 
 
+    //     consumers = [];
+    //     producers = [];
+    //     reserveProviders = [];
+    // }
+
+    // function test_submitReserve(_users) {
+    //     for (var i = 0; i < _users; i++) {
+    //         var erzeugung = Math.floor(Math.random() * 300) + 1;
+    //         var owner = Math.floor(Math.random() * _users) + 1;
+    //         var price = Math.floor(Math.random() * 99) + 1;
+
+    //         if (new_save_order("ASK", price, erzeugung, owner)){
+    //             reserveProviders.push(owner);
+    //         }
+    //     }
+    // }
+
+    // function test_submitAsk(_users) {
+    //     for (var i = 0; i < _users; i++) {
+    //         var erzeugung = Math.floor(Math.random() * 10) + 1;
+    //         var owner = Math.floor(Math.random() * _users) + 1;
+    //         var price = Math.floor(Math.random() * 99) + 1;
+
+    //         if (new_save_order("ASK", price, erzeugung, owner)){
+    //             producers.push(owner);
+    //         }
+    //     }
+    // }
+
+    // function test_submitBid(_users) {
+    //     for (i = 0; i < _users; i++) {
+    //         var verbrauch = Math.floor(Math.random() * 10) + 1;
+    //         var maxPrice = 0;
+    //         var owner = Math.floor(Math.random() * _users) + 1;
+
+    //         if (Math.random() > 0.3) {
+    //             maxPrice = Math.floor(Math.random() * 99) + 1;
+    //         } else {
+    //             maxPrice = 9999
+    //         }
+    //         if (new_save_order("BID", maxPrice, verbrauch, owner)){
+    //             consumers.push(owner);
+    //         }
+    //     }
+    // }
+
+    // function test(_users) {
+    //     test_submitBid(_users);
+    //     test_submitAsk(_users);
+    //     printAskOrders();
+    //     printBidOrders();
+      
+    //     match();
+    //     printMatchedAskOrders();
+    //     printMatchedBidOrders();
+    //     test_submitReserve(_users);
+    //     determineReservePrice();
+    // }
 
 
-        // function test(_users) {
-        //     random_test(_users)
-        //     match();
-        //     test_submitReserve(_users);
-        //     determineReservePrice();
 
-        //     test_settle();
 
-        //     console.log("\n######################################");
-        //     console.log("########## Colleteral ################");
-        //     console.log("######################################")
-        //     for (c in colleteral) {
-        //         console.log("User " + c + ": " + colleteral[c]);
-        //     }
 
-        //     console.log("\n######################################");
-        //     console.log("########## Energy data ###############");
-        //     console.log("######################################")
+    //     // function test(_users) {
+    //     //     random_test(_users)
+    //     //     match();
+    //     //     test_submitReserve(_users);
+    //     //     determineReservePrice();
 
-        //     console.log("\nConsumed Energy: " + sumConsumed);
-        //     console.log("Produced Energy: " + sumProduced);
-        //     console.log("Regulated Energy: " + sumReserved);
-        // }
+    //     //     test_settle();
+
+    //     //     console.log("\n######################################");
+    //     //     console.log("########## Colleteral ################");
+    //     //     console.log("######################################")
+    //     //     for (c in colleteral) {
+    //     //         console.log("User " + c + ": " + colleteral[c]);
+    //     //     }
+
+    //     //     console.log("\n######################################");
+    //     //     console.log("########## Energy data ###############");
+    //     //     console.log("######################################")
+
+    //     //     console.log("\nConsumed Energy: " + sumConsumed);
+    //     //     console.log("Produced Energy: " + sumProduced);
+    //     //     console.log("Regulated Energy: " + sumReserved);
+    //     // }
     </script>
 </body>
 
