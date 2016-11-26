@@ -18,7 +18,7 @@ const INITIAL_COLLATERAL = 10000;
 const DEFAULT_MAXPRICE = Number.MAX_SAFE_INTEGER;
 
 // only for test. On blockchain the period is determined by the blocknumber.
-var period = 0;
+var period = 1;
 
 // here matched order information gets saved based on the period and owner. analog to mapping(address => mapping (period => Data))
 var matchedAskOrderMapping = {};
@@ -26,9 +26,9 @@ var matchedBidOrderMapping = {};
 var matchingPriceMapping = {};
 
 const MIN_RESERVE_VOLUME = 1000; // kWh needed to be secured against any shortage
-var matchedReserveOrderMapping = {};
+var matched_ask_ReserveOrderMapping = {};
 
-var reservePriceMapping = {};
+var ask_reserve_prices = {};
 
 // bid idToOrder without _maxprice are simply idToOrder with
 // a very high _maxprice (flex bid).
@@ -71,6 +71,19 @@ function submitReserveAsk(_owner, _volume, _price) {
         throw new Error('_price missing');
     }
     return new_save_order("ASK", _price, _volume, _owner);
+}
+
+function submitReserveBid(_owner, _volume, _price) {
+    if (!_owner) {
+        throw new Error('_owner missing');
+    }
+    if (!_volume) {
+        throw new Error('_volume missing');
+    }
+    if (!_price) {
+        _price = DEFAULT_MAXPRICE;
+    }
+    new_save_order("BID", _price, _volume, _owner)
 }
 
 var idCounter = 1;
@@ -373,26 +386,26 @@ function appendToDoubleMapping(_mapping, _key1, _key2, _value) {
     }
 }
 
-    var cumAskReserveVol = 0;
-    var reserve_price;
+var cumAskReserveVol = 0;
+var reserve_ask_price;
 
 // TODO: events rausballern für jeden user dessen idToOrder gematched wurden
 // TODO: auch den Kaufpreis vorab bestimmen
-function determineReservePrice() {
+function determineReserveAskPrice() {
 
     cumAskReserveVol = 0;
     var isFound = false;
-    reserve_price = idToOrder[minAsk.id].price;
+    reserve_ask_price = idToOrder[minAsk.id].price;
     var iter_ask_id = minAsk.id;
 
     while (!isFound) {
-        while (idToOrder[iter_ask_id].price === reserve_price) {
+        while (idToOrder[iter_ask_id].price === reserve_ask_price) {
             var volume = idToOrder[iter_ask_id].volume;
             var owner = idToOrder[iter_ask_id].owner;
 
             cumAskReserveVol += volume;
-            appendToDoubleMapping(matchedReserveOrderMapping, period, owner, {
-                offeredVolume: volume
+            appendToDoubleMapping(matched_ask_ReserveOrderMapping, period, owner, {
+                volume: volume
             });
 
             var nex = idToOrder[iter_ask_id].nex;
@@ -407,19 +420,99 @@ function determineReservePrice() {
         if (cumAskReserveVol >= MIN_RESERVE_VOLUME) {
             isFound = true;
         } else {
-            reserve_price = idToOrder[iter_ask_id].price;
+            reserve_ask_price = idToOrder[iter_ask_id].price;
         }
     }
 
-    resetOrders();
-    reservePriceMapping[period] = reserve_price;
+       minAsk = {
+        id: 0,
+        nex: 0,
+        owner: 0,
+        volume: 0,
+        price: 0,
+    };
+
+    ask_reserve_prices[period] = reserve_ask_price;
 }
 
-function printReserveOrderMatchingResult(){
+var cumBidReserveVol = 0;
+var reserve_bid_price;
+var matched_bid_ReserveOrderMapping= {};
+var bid_reserve_prices = {};
+
+function determineReserveBidPrice() {
+    cumBidReserveVol = 0;
+    var isFound = false;
+    reserve_bid_price = idToOrder[maxBid.id].price;
+    var iter_bid_id = maxBid.id;
+
+    while (!isFound) {
+        while (idToOrder[iter_bid_id].price === reserve_bid_price) {
+            var volume = idToOrder[iter_bid_id].volume;
+            var owner = idToOrder[iter_bid_id].owner;
+
+            cumBidReserveVol += volume;
+            appendToDoubleMapping(matched_bid_ReserveOrderMapping, period, owner, {
+                volume: volume
+            });
+
+            var nex = idToOrder[iter_bid_id].nex;
+            if (nex) {
+                iter_bid_id = nex;
+            } else {
+                isFound = true;
+                break;
+            }
+        }
+
+        if (cumBidReserveVol >= MIN_RESERVE_VOLUME) {
+            isFound = true;
+        } else {
+            reserve_bid_price = idToOrder[iter_bid_id].price;
+        }
+    }
+
+       maxBid = {
+        id: 0,
+        nex: 0,
+        owner: 0,
+        volume: 0,
+        price: 0,
+    };
+
+    bid_reserve_prices[period] = reserve_bid_price;
+}
+
+function test1(){
+    test_submit_bid_reserve(10);
+    test_submit_ask_reserve(10);
+
+    printBidOrders();
+    printAskOrders();
+
+    determineReserveBidPrice();
+    determineReserveAskPrice();
+
+
+    printReserveOrderMatchingResult();
+
+}
+
+function printReserveOrderMatchingResult() {
     console.log('\n######################################');
-    console.log('####### Reserve Matching Result ######');
+    console.log('####### Reserve BID Matching Result ######');
     console.log('######################################');
-    console.log('\nReserve Price: ' + reserve_price + ' | Volume (>1000): ' + cumAskReserveVol);
+    console.log('\nReserve Price: ' + bid_reserve_prices[period] + ' | Volume (>1000): ' + cumBidReserveVol);
+    console.log('\n######################################');
+
+
+    console.log('\n\n\nn######################################');
+    console.log('####### Reserve ASK Matching Result ######');
+    console.log('######################################');
+    console.log('\nReserve Price: ' + ask_reserve_prices[period] + ' | Volume (>1000): ' + cumAskReserveVol);
+    console.log('\n######################################');
+
+
 }
 
 function getMatchedAskOrders() {
@@ -495,24 +588,24 @@ function settle(_user, _type, _volume, _period) {
     var offered = 0;
     var diff;
 
-    var reservePrice = reservePriceMapping[period];
+    var reservePrice = ask_reserve_prices[period];
     var matchingPrice = matchingPriceMapping[period];
 
     if (_type === 'PRODUCER') {
-        if (matchedReserveOrderMapping[_period][user]) {
-            if (!matchedReserveOrderMapping[_period][user].offeredVolume) {
+        if (matched_ask_ReserveOrderMapping[_period][user]) {
+            if (!matched_ask_ReserveOrderMapping[_period][user].offeredVolume) {
                 console.warn("Position already settled.");
                 return false;
             }
 
-            offered = matchedReserveOrderMapping[_period][user].offeredVolume;
+            offered = matched_ask_ReserveOrderMapping[_period][user].offeredVolume;
 
             if (_volume <= offered) {
                 colleteral[user] += _volume * reservePrice;
             } else {
                 colleteral[user] += offered * reservePrice;
             }
-            matchedReserveOrderMapping[_period][user] = {};
+            matched_ask_ReserveOrderMapping[_period][user] = {};
             //console.log("(Settlement Reserve Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+reservePrice);
             success = true;
         }
@@ -570,25 +663,6 @@ var consumers = [];
 var producers = [];
 var reserveProviders = [];
 
-
-// function test_submitReserve(users) {
-
-//     for (i = 0; i < users; i++) {
-//         var erzeugung = Math.floor(Math.random() * 300) + 1;
-//         var price = 0;
-//         var owner = Math.floor(Math.random() * users) + users;
-
-//         price = Math.floor(Math.random() * 99) + 1;
-//         if (submitReserveAsk(price, erzeugung, owner)) {
-//             reserveProviders.push(owner);
-//         }
-//     }
-
-//     console.log("\n######################################");
-//     console.log("########## Reserve Ask Orders ########");
-//     console.log("######################################")
-//     printAskOrders();
-// }
 
 // TODO: reserve settle orders testen einzelnd und dann systematisch. ask bid order emitents verhalten sich ehrlich und die differenz wird von reserve übernommen, dann  sollte alles im schnitt null sein ???!?!!?
 var sumConsumed = 0;
@@ -649,8 +723,8 @@ function test_random_settle() {
                 vol = (sumConsumed - sumProduced) - sumReserved;
                 sumReserved += vol;
             }
-            if (vol != 0){
-                settle(reserveProviders[user].id, "PRODUCER", reserveProviders[user].vol, period);    
+            if (vol != 0) {
+                settle(reserveProviders[user].id, "PRODUCER", reserveProviders[user].vol, period);
             }
 
         }
@@ -662,50 +736,63 @@ function test_random_settle() {
 }
 
 
-function test_submitReserve(_users) {
+function test_submit_ask_reserve(_users) {
     for (var i = 0; i < _users; i++) {
-        var erzeugung = Math.floor(Math.random() * 300) + 1;
+        var volume = Math.floor(Math.random() * 300) + 1;
+        var owner = Math.floor(Math.random() * _users) + 50;
+        var price = Math.floor(Math.random() * 99) + 1;
+
+        if (new_save_order("ASK", price, volume, owner)) {
+            reserveProviders.push({ id: owner, vol: volume });
+        }
+    }
+}
+
+
+function test_submit_bid_reserve(_users) {
+    for (var i = 0; i < _users; i++) {
+        var volume = Math.floor(Math.random() * 300) + 1;
         var owner = Math.floor(Math.random() * _users) + 100;
         var price = Math.floor(Math.random() * 99) + 1;
 
-        if (new_save_order("ASK", price, erzeugung, owner)) {
-            reserveProviders.push({ id: owner, vol: erzeugung });
+        if (new_save_order("BID", price, volume, owner)) {
+            reserveProviders.push({ id: owner, vol: volume });
         }
     }
 }
 
-function test_submitAsk(_users) {
+function test_submit_ask(_users) {
     for (var i = 0; i < _users; i++) {
-        var erzeugung = Math.floor(Math.random() * 10) + 1;
+        var volume = Math.floor(Math.random() * 10) + 1;
         var owner = Math.floor(Math.random() * _users) + 1;
         var price = Math.floor(Math.random() * 99) + 1;
 
-        if (new_save_order("ASK", price, erzeugung, owner)) {
-            producers.push({ id: owner, vol: erzeugung });
+        if (new_save_order("ASK", price, volume, owner)) {
+            producers.push({ id: owner, vol: volume });
         }
     }
 }
 
-function test_submitBid(_users) {
+function test_submit_bid(_users) {
     for (var i = 0; i < _users; i++) {
-        var verbrauch = Math.floor(Math.random() * 10) + 1;
-        var maxPrice = 0;
+        var volume = Math.floor(Math.random() * 10) + 1;
+        var price = 0;
         var owner = Math.floor(Math.random() * _users) + 1;
 
         if (Math.random() > 0.3) {
-            maxPrice = Math.floor(Math.random() * 99) + 1;
+            price = Math.floor(Math.random() * 99) + 1;
         } else {
-            maxPrice = 9999
+            price = 9999
         }
-        if (new_save_order("BID", maxPrice, verbrauch, owner)) {
-            consumers.push({ id: owner, vol: verbrauch });
+        if (new_save_order("BID", price, volume, owner)) {
+            consumers.push({ id: owner, vol: volume });
         }
     }
 }
 
 function test(_users) {
-    test_submitBid(_users);
-    test_submitAsk(_users);
+    test_submit_bid(_users);
+    test_submit_ask(_users);
     printAskOrders();
     printBidOrders();
 
@@ -718,10 +805,10 @@ function test(_users) {
     }
     printMatchedAskOrders();
     printMatchedBidOrders();
-    test_submitReserve(_users);
+    test_submit_ask_reserve(_users);
     console.log("Reserve Ask Orderbook")
     printAskOrders();
-    determineReservePrice();
+    determineReserveAskPrice();
     printReserveOrderMatchingResult();
     test_settle();
 
@@ -754,12 +841,14 @@ function check_colleteral() {
 
 
 var dex = {
-    period:period,
-    matchedAskOrderMapping,matchedAskOrderMapping,
-    matchedBidOrderMapping,matchedBidOrderMapping,
-    test_submitBid: test_submitBid,
-    test_submitAsk: test_submitAsk,
-    test_submitReserve: test_submitReserve,
+    period: period,
+    matchedAskOrderMapping,
+    matchedAskOrderMapping,
+    matchedBidOrderMapping,
+    matchedBidOrderMapping,
+    test_submit_bid: test_submit_bid,
+    test_submit_ask: test_submit_ask,
+    test_submit_ask_reserve: test_submit_ask_reserve,
     test_settle,
     submitBidOrder: submitBidOrder,
     submitAskOrder: submitAskOrder,
@@ -767,7 +856,7 @@ var dex = {
     match: match,
     resetOrders: resetOrders,
     appendToDoubleMapping: appendToDoubleMapping,
-    determineReservePrice: determineReservePrice,
+    determineReserveAskPrice: determineReserveAskPrice,
     getMatchedAskOrders: getMatchedAskOrders,
     getMatchedBidOrders: getMatchedBidOrders,
     getBidOrders: getBidOrders,
