@@ -1,5 +1,5 @@
 var expect = require("chai").expect;
-var dex = require("../js/dex");
+var dex = require("../dex");
 var assert = require("assert");
 
 

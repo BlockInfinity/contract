@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const dex = require('./dex');
+const dex = require('../dex');
 
 describe('randomly generate asks and bids', function() {
 
