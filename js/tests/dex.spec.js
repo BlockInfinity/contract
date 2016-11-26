@@ -52,7 +52,9 @@ describe('randomly generated asks and bids', function() {
             dex.test_submit_ask(_users);
             dex.match();
             dex.test_submit_ask_reserve(_users);
+            dex.test_submit_bid_reserve(_users);
             dex.determineReserveAskPrice();
+            dex.determineReserveBidPrice();
             dex.test_settle();
 
             var colleteral = dex.colleteral;
