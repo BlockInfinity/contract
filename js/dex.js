@@ -28,7 +28,8 @@ var matchingPriceMapping = {};
 const MIN_RESERVE_VOLUME = 1000; // kWh needed to be secured against any shortage
 var matchedReserveOrderMapping = {};
 
-var reservePriceMapping = {};
+var reserveAskPriceMapping = {};
+var reserveBidPriceMapping = {};
 
 // bid idToOrder without _maxprice are simply idToOrder with
 // a very high _maxprice (flex bid).
@@ -412,7 +413,7 @@ function determineReservePrice() {
     }
 
     resetOrders();
-    reservePriceMapping[period] = reserve_price;
+    reserveAskPriceMapping[period] = reserve_price;
 }
 
 function printReserveOrderMatchingResult(){
@@ -495,7 +496,9 @@ function settle(_user, _type, _volume, _period) {
     var offered = 0;
     var diff;
 
-    var reservePrice = reservePriceMapping[period];
+    var reserveAskPrice = reserveAskPriceMapping[period];
+    //TODO set to price from period
+    var reserveBidPrice = 2;
     var matchingPrice = matchingPriceMapping[period];
 
     if (_type === 'PRODUCER') {
@@ -506,14 +509,12 @@ function settle(_user, _type, _volume, _period) {
             }
 
             offered = matchedReserveOrderMapping[_period][user].offeredVolume;
+            diff = _volume - offered;
+            var reservePrice = diff > 0 ? reserveBidPrice : 0;
 
-            if (_volume <= offered) {
-                colleteral[user] += _volume * reservePrice;
-            } else {
-                colleteral[user] += offered * reservePrice;
-            }
+            collateral[user] += reservePrice * _volume + _volume * reservePrice;
             matchedReserveOrderMapping[_period][user] = {};
-            //console.log("(Settlement Reserve Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+reservePrice);
+            //console.log("(Settlement Reserve Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+reserveAskPrice);
             success = true;
         }
 
@@ -524,14 +525,10 @@ function settle(_user, _type, _volume, _period) {
             }
 
             offered = matchedAskOrderMapping[_period][user].offeredVolume;
-            diff = offered - _volume;
+            diff = _volume - offered;
+            var reservePrice = diff > 0 ? reserveBidPrice : 0;
+            colleteral[user] += (diff * reservePrice) + _volume * matchingPrice;
 
-            if (_volume < offered) { // user hat zu wenig Strom eingespeist
-                colleteral[user] -= (diff * reservePrice);
-                colleteral[user] += _volume * matchingPrice;
-            } else {
-                colleteral[user] += offered * matchingPrice;
-            }
             matchedAskOrderMapping[_period][user] = {};
             //console.log("(Settlement Ask Order) User: "+user+" | Volume: "+_volume+" | Price: "+matchingPrice);
             success = true;
@@ -548,16 +545,33 @@ function settle(_user, _type, _volume, _period) {
 
             ordered = matchedBidOrderMapping[_period][user].orderedVolume;
             diff = _volume - ordered;
-            if (_volume > ordered) { // user hat zu viel Strom bezogen
-                colleteral[user] -= (diff * reservePrice);
-                colleteral[user] -= (ordered * matchingPrice);
-            } else {
-                colleteral[user] -= (ordered * matchingPrice);
-            }
+            diff = diff > 0 ? diff : 0; 
+            colleteral[user] -= diff * reserveAskPrice + ordered * matchingPrice;
+    
             matchedBidOrderMapping[_period][user] = {};
+
             success = true;
         } else {
-            colleteral[user] -= (_volume * reservePrice);
+            colleteral[user] -= (_volume * reserveAskPrice);
+        }
+
+        //Reserve bid order mapping
+        if (matchedBidOrderMapping[_period][user]) {
+            if (!matchedBidOrderMapping[_period][user].orderedVolume) {
+                //console.warn("Position already settled.");
+                return false;
+            }
+
+            ordered = matchedBidOrderMapping[_period][user].orderedVolume;
+            diff = _volume - ordered;
+            diff = diff > 0 ? diff : 0; 
+            colleteral[user] +=  ordered * reserveBidPrice - diff * reserveAskPrice ;
+    
+            matchedBidOrderMapping[_period][user] = {};
+
+            success = true;
+        } else {
+            colleteral[user] -= (_volume * reserveAskPrice);
         }
     }
     return success;
@@ -697,7 +711,7 @@ function test(_users) {
     test_submitReserve(_users);
     console.log("Reserve Ask Orderbook")
     printAskOrders();
-    determineReservePrice();
+    determinereserveAskPrice();
     printReserveOrderMatchingResult();
     test_settle();
 
