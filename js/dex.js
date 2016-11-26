@@ -302,10 +302,7 @@ function match() {
     }
 
 
-    if (!checkAskShare()) {
-        debugger;
-        throw new Error("Share of Ask orders does not fit")
-    }
+
     matchingPriceMapping[period] = matching_price;
 
     resetOrders();
@@ -634,7 +631,11 @@ var exportContainer = {
     getBidOrders: getBidOrders,
     getAskOrders: getAskOrders,
     settle: settle,
-    colleteral: colleteral
+    colleteral: colleteral,
+    saveOrder:saveOrder,
+    matchedBidOrderMapping,
+    matchedAskOrderMapping,
+    period
 };
 
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
