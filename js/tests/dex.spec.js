@@ -85,3 +85,202 @@ describe('randomly generated asks and bids', function() {
         });
     });
 });
+
+
+var consumers = [];
+var producers = [];
+var reserveProviders = [];
+
+
+// TODO: reserve settle orders testen einzelnd und dann systematisch. ask bid order emitents verhalten sich ehrlich und die differenz wird von reserve übernommen, dann  sollte alles im schnitt null sein ???!?!!?
+var sumConsumed = 0;
+var sumProduced = 0;
+var sumReserved = 0;
+
+var TotalConsumedEnergy = 0;
+
+
+function checkAskShare() {
+    var sum = 0;
+    for (var user in matchedAskOrderMapping[period]) {
+        sum += matchedAskOrderMapping[period][user].offeredVolume;
+    }
+    for (var user in matchedBidOrderMapping[period]) {
+        sum -= matchedBidOrderMapping[period][user].orderedVolume;
+    }
+    return (sum == 0 || (sum < 0.001 && sum > -0.001));
+}
+
+
+
+function checkCollateral() {
+    var sum = 0;
+    for (var i in colleteral) {
+        sum += colleteral[i];
+    }
+    return (sum == 0 || (sum < 0.001 && sum > -0.001));
+}
+
+
+// settlement mit Erzeugungs- und Verbrauchsdaten, welche den zuvor abgegebenen order volumes entsprechen. Es kommt nicht zu einem Ungleichgewicht und die Reserve Users müssen nicht eingreifen
+function perfectSettle() {
+
+    sumConsumed = 0;
+    sumProduced = 0;
+    sumReserved = 0;
+
+    for (var user in matchedBidOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumConsumed += vol;
+        settle(user, "CONSUMER", matchedBidOrderMapping[period][user].orderedVolume, period);
+    }
+
+    for (user in matchedAskOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumProduced += vol;
+        settle(user, "PRODUCER", matchedAskOrderMapping[period][user].offeredVolume, period);
+    }
+
+    consumers = [];
+    producers = [];
+    reserveProviders = [];
+}
+
+
+// settlement mit zufälligen Erzeugungs- und Verbrauchsdaten. Es kommt zu einem Ungleichgewicht und die Reserve users müssen jenes Ungleichgewicht regulieren.
+function randomSettle() {
+
+    sumConsumed = 0;
+    sumProduced = 0;
+    sumReserved = 0;
+
+    for (var user in matchedBidOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumConsumed += vol;
+        settle(user, "CONSUMER", vol, period);
+    }
+
+    for (var user in matchedAskOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumProduced += vol;
+        settle(user, "PRODUCER", vol, period);
+    }
+
+    if (sumProduced < sumConsumed) {
+        for (user in reserveProviders) {
+            var vol = Math.floor(Math.random() * 10) + 1;
+            sumReserved += vol;
+            if (sumReserved > (sumConsumed - sumProduced)) {
+                sumReserved -= vol;
+                vol = (sumConsumed - sumProduced) - sumReserved;
+                sumReserved += vol;
+            }
+            if (vol != 0) {
+                settle(reserveProviders[user].id, "PRODUCER", reserveProviders[user].vol, period);
+            }
+
+        }
+    }
+
+    consumers = [];
+    producers = [];
+    reserveProviders = [];
+}
+
+var owner = 1;
+
+function submitAskReserve(_users) {
+    for (var i = 0; i < _users; i++) {
+        var volume = Math.floor(Math.random() * 300) + 1;
+        var price = Math.floor(Math.random() * 99) + 1;
+
+        if (saveOrder("ASK", price, volume, owner)) {
+            reserveProviders.push({ id: owner++, vol: volume });
+        }
+    }
+}
+
+
+function submitBidReserve(_users) {
+    for (var i = 0; i < _users; i++) {
+        var volume = Math.floor(Math.random() * 300) + 1;
+        var price = Math.floor(Math.random() * 99) + 1;
+
+        if (saveOrder("BID", price, volume, owner)) {
+            reserveProviders.push({ id: owner++, vol: volume });
+        }
+    }
+}
+
+function submitAsk(_users) {
+    for (var i = 0; i < _users; i++) {
+        var volume = Math.floor(Math.random() * 10) + 1;
+        var price = Math.floor(Math.random() * 99) + 1;
+
+        if (saveOrder("ASK", price, volume, owner)) {
+            producers.push({ id: owner++, vol: volume });
+        }
+    }
+}
+
+function submitBid(_users) {
+    for (var i = 0; i < _users; i++) {
+        var volume = Math.floor(Math.random() * 10) + 1;
+        var price = 0;
+
+        if (Math.random() > 0.3) {
+            price = Math.floor(Math.random() * 99) + 1;
+        } else {
+            price = 9999
+        }
+        if (saveOrder("BID", price, volume, owner)) {
+            consumers.push({ id: owner++, vol: volume });
+        }
+    }
+}
+
+
+function test() {
+    submitBidReserve(10);
+    submitAskReserve(10);
+
+    printBidOrders();
+    printAskOrders();
+
+    determineReserveBidPrice();
+    determineReserveAskPrice();
+
+
+    printReserveOrderMatchingResult();
+
+}
+
+// function test(_users) {
+//     test_submit_bid(_users);
+//     test_submit_ask(_users);
+//     printAskOrders();
+//     printBidOrders();
+
+//     match();
+//     printMatchingResult()
+
+//     if (!checkAskShare()) {
+//         debugger;
+//         throw new Error("Share of Ask orders does not fit")
+//     }
+//     printMatchedAskOrders();
+//     printMatchedBidOrders();
+//     test_submit_ask_reserve(_users);
+//     console.log("Reserve Ask Orderbook")
+//     printAskOrders();
+//     determineReserveAskPrice();
+//     printReserveOrderMatchingResult();
+//     test_settle();
+
+//     if (!check_colleteral()) {
+//         debugger;
+//         throw new Error("Cumulative colleteral is not zero")
+//     }
+// }
+
+

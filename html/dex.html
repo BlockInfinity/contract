@@ -3,11 +3,73 @@
 
 <head>
     <script src="../js/dex.js"></script>
-    <script src="../node_modules/lodash/lodash.js"></script>
+
 </head>
+<script>
+function printAskOrders() {
+    var askOrderBook = getAskOrders();
+    console.log("\nASK ORDERBOOK\n\n");
+    for (var i in askOrderBook) {
+        console.log('Price: ' + askOrderBook[i].price + ' | Volume: ' + askOrderBook[i].volume + ' | Owner: ' + askOrderBook[i].owner);
+    }
+}
+
+function printBidOrders() {
+    var bidOrderBook = getBidOrders();
+    console.log("\nBID ORDERBOOK\n\n");
+    for (var i in bidOrderBook) {
+        console.log('Price: ' + bidOrderBook[i].price + ' | Volume: ' + bidOrderBook[i].volume + ' | Owner: ' + bidOrderBook[i].owner);
+    }
+}
+
+
+function printMatchingResult() {
+
+    console.log('\n######################################');
+    console.log('########### Matching Result ##########');
+    console.log('######################################');
+    console.log('Matching price: ', matching_price, ' | Bid Volume: ', cumBidVol, ' | Ask Volume: ', cumAskVol, ' | share: ', share);
+
+}
+
+
+function printMatchedAskOrders() {
+    var matches = getMatchedAskOrders();
+    console.log("\nMatched ASK ORDERBOOK\n\n");
+    for (var i in matches) {
+        console.log('Period: ', matches[i].period, ' | Owner: ', matches[i].owner, ' | OfferedVol: ', matches[i].offeredVolume);
+    }
+}
+
+
+function printMatchedBidOrders() {
+    var matches = getMatchedBidOrders();
+    console.log("\nMatched BID ORDERBOOK\n\n");
+    for (var i in matches) {
+        console.log('Period: ', matches[i].period, ' | Owner: ', matches[i].owner, ' | OrderedVol: ', matches[i].orderedVolume);
+    }
+}
+
+function printReserveOrderMatchingResult() {
+    console.log('\n######################################');
+    console.log('####### Reserve BID Matching Result ######');
+    console.log('######################################');
+    console.log('\nReserve Price: ' + bid_reserve_prices[period] + ' | Volume (>1000): ' + cumBidReserveVol);
+    console.log('\n######################################');
+
+
+    console.log('\n\n\nn######################################');
+    console.log('####### Reserve ASK Matching Result ######');
+    console.log('######################################');
+    console.log('\nReserve Price: ' + askReservePrices[period] + ' | Volume (>1000): ' + cumAskReserveVol);
+    console.log('\n######################################');
+
+}
+
+
+</script>
 
 <body>
-    
 </body>
 
 </html>
