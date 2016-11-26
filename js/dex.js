@@ -755,28 +755,52 @@ function test_settle() {
         settle(user, "PRODUCER", matchedAskOrderMapping[period][user].offeredVolume, period);
     }
 
-    // if (sumProduced < sumConsumed) {
-    //     for (user in reserveProviders) {
-    //         var vol = Math.floor(Math.random() * 10) + 1;
-    //         sumReserved += vol;
-    //         if (sumReserved > (sumConsumed - sumProduced)) {
-    //             sumReserved -= vol;
-    //             vol = (sumConsumed - sumProduced) - sumReserved;
-    //             sumReserved += vol;
-    //         }
-    //         if (vol != 0){
-    //             settle(reserveProviders[user].id, "PRODUCER", reserveProviders[user].vol, period);    
-    //         }
-
-    //     }
-    // }
+    consumers = [];
+    producers = [];
+    reserveProviders = [];
+}
 
 
+
+function test_random_settle() {
+
+    sumConsumed = 0;
+    sumProduced = 0;
+    sumReserved = 0;
+
+    for (var user in matchedBidOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumConsumed += vol;
+        settle(user, "CONSUMER", vol, period);
+    }
+
+    for (var user in matchedAskOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumProduced += vol;
+        settle(user, "PRODUCER", vol, period);
+    }
+
+    if (sumProduced < sumConsumed) {
+        for (user in reserveProviders) {
+            var vol = Math.floor(Math.random() * 10) + 1;
+            sumReserved += vol;
+            if (sumReserved > (sumConsumed - sumProduced)) {
+                sumReserved -= vol;
+                vol = (sumConsumed - sumProduced) - sumReserved;
+                sumReserved += vol;
+            }
+            if (vol != 0){
+                settle(reserveProviders[user].id, "PRODUCER", reserveProviders[user].vol, period);    
+            }
+
+        }
+    }
 
     consumers = [];
     producers = [];
     reserveProviders = [];
 }
+
 
 function test_submitReserve(_users) {
     for (var i = 0; i < _users; i++) {
