@@ -41,31 +41,8 @@ describe('randomly generated asks and bids', function() {
                 lastPrice = askOrders[i].price;
             }
         });
-    });456
-
-
-
-    describe('settle', function() {
-        it('if all predictions are correct, the cumulative sum in the colleteral mapping should be zero', function() {
-            var _users = 50;
-            submitRandomAskOrders(_users);
-            submitRandomBidOrders(_users);
-            dex.match();
-            submitRandomBidReserveOrders(_users);
-            submitRandomAskReserveOrders(_users);
-            dex.determineReserveAskPrice();
-            dex.determineReserveBidPrice();
-            perfectSettle();
-
-            var colleteral = dex.colleteral;
-            var sum = 0;
-            for (var i in colleteral) {
-                sum += colleteral[i];
-
-            }
-            assert(sum == 0 || (sum < 0.001 && sum > -0.001));
-        });
     });
+    456
 
     describe('match', function() {
         it('matched ask and bid order volumes should be the same', function() {
@@ -85,6 +62,51 @@ describe('randomly generated asks and bids', function() {
             assert(sum == 0 || (sum < 0.001 && sum > -0.001));
         });
     });
+
+    describe('settlement without reserve orders', function() {
+        it('if all predictions are correct, the cumulative sum in the colleteral mapping should be zero', function() {
+            var _users = 50;
+            submitRandomAskOrders(_users);
+            submitRandomBidOrders(_users);
+            dex.match();
+            submitRandomBidReserveOrders(_users);
+            submitRandomAskReserveOrders(_users);
+            dex.determineReserveAskPrice();
+            dex.determineReserveBidPrice();
+            perfectSettle();
+
+            var colleteral = dex.colleteral;
+            var sum = 0;
+            for (var i in colleteral) {
+                sum += colleteral[i];
+
+            }
+            assert(sum == 0 || (sum < 0.001 && sum > -0.001));
+        });
+
+
+        it('settlemet with reserve orders', function() {
+            var _users = 50;
+            submitRandomAskOrders(_users);
+            submitRandomBidOrders(_users);
+            dex.match();
+            submitRandomBidReserveOrders(_users);
+            submitRandomAskReserveOrders(_users);
+            dex.determineReserveAskPrice();
+            dex.determineReserveBidPrice();
+            randomSettle();
+
+            var colleteral = dex.colleteral;
+            var sum = 0;
+            for (var i in colleteral) {
+                sum += colleteral[i];
+
+            }
+            assert(sum == 0 || (sum < 0.001 && sum > -0.001));
+        });
+
+    });
+
 });
 
 
@@ -92,7 +114,8 @@ describe('randomly generated asks and bids', function() {
 
 var consumers = [];
 var producers = [];
-var reserveProviders = [];
+var reserveAskProviders = [];
+var reserveBidProviders = [];
 
 var sumConsumed = 0;
 var sumProduced = 0;
@@ -147,7 +170,6 @@ function perfectSettle() {
 
     consumers = [];
     producers = [];
-    reserveProviders = [];
 }
 
 
@@ -157,7 +179,7 @@ function submitRandomAskReserveOrders(_users) {
         var price = Math.floor(Math.random() * 99) + 1;
 
         if (dex.saveOrder("ASK", price, volume, owner)) {
-            reserveProviders.push({ id: owner++, vol: volume });
+            reserveAskProviders.push({ id: owner++, vol: volume });
         }
     }
 }
@@ -168,7 +190,7 @@ function submitRandomBidReserveOrders(_users) {
         var price = Math.floor(Math.random() * 99) + 1;
 
         if (dex.saveOrder("BID", price, volume, owner)) {
-            reserveProviders.push({ id: owner++, vol: volume });
+            reserveBidProviders.push({ id: owner++, vol: volume });
         }
     }
 }
@@ -201,44 +223,55 @@ function submitRandomBidOrders(_users) {
 }
 
 // settlement mit zufälligen Erzeugungs- und Verbrauchsdaten. Es kommt zu einem Ungleichgewicht und die Reserve users müssen jenes Ungleichgewicht regulieren.
-// function randomSettle() {
+ function randomSettle() {
 
-//     sumConsumed = 0;
-//     sumProduced = 0;
-//     sumReserved = 0;
+    sumConsumed = 0;
+    sumProduced = 0;
+    sumReserved = 0;
 
-//     for (var user in matchedBidOrderMapping[period]) {
-//         var vol = Math.floor(Math.random() * 10) + 1;
-//         sumConsumed += vol;
-//         settle(user, "CONSUMER", vol, period);
-//     }
+    for (var user in matchedBidOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumConsumed += vol;
+        settle(user, "CONSUMER", vol, period);
+    }
 
-//     for (var user in matchedAskOrderMapping[period]) {
-//         var vol = Math.floor(Math.random() * 10) + 1;
-//         sumProduced += vol;
-//         settle(user, "PRODUCER", vol, period);
-//     }
+    for (var user in matchedAskOrderMapping[period]) {
+        var vol = Math.floor(Math.random() * 10) + 1;
+        sumProduced += vol;
+        settle(user, "PRODUCER", vol, period);
+    }
 
-//     if (sumProduced < sumConsumed) {
-//         for (user in reserveProviders) {
-//             var vol = Math.floor(Math.random() * 10) + 1;
-//             sumReserved += vol;
-//             if (sumReserved > (sumConsumed - sumProduced)) {
-//                 sumReserved -= vol;
-//                 vol = (sumConsumed - sumProduced) - sumReserved;
-//                 sumReserved += vol;
-//             }
-//             if (vol != 0) {
-//                 settle(reserveProviders[user].id, "PRODUCER", reserveProviders[user].vol, period);
-//             }
+    if (sumProduced != sumConsumed){
+        if (sumProduced > sumConsumed){
+            for (var user in reserveBidProviders){
+                
+            }
 
-//         }
-//     }
+        } else {
 
-//     consumers = [];
-//     producers = [];
-//     reserveProviders = [];
-// }
+        }
+    }
+
+    if (sumProduced < sumConsumed) {
+        for (user in reserveAskProviders) {
+            var vol = Math.floor(Math.random() * 10) + 1;
+            sumReserved += vol;
+            if (sumReserved > (sumConsumed - sumProduced)) {
+                sumReserved -= vol;
+                vol = (sumConsumed - sumProduced) - sumReserved;
+                sumReserved += vol;
+            }
+            if (vol != 0) {
+                settle(reserveAskProviders[user].id, "PRODUCER", reserveAskProviders[user].vol, period);
+            }
+
+        }
+    }
+
+    consumers = [];
+    producers = [];
+    reserveAskProviders = [];
+}
 
 
 // function test() {
@@ -283,4 +316,3 @@ function submitRandomBidOrders(_users) {
 //         throw new Error("Cumulative colleteral is not zero")
 //     }
 // }
-
