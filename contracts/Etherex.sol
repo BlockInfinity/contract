@@ -33,45 +33,69 @@ contract Etherex {
     //if the balance is below 0, then send event that turns of energy
     mapping(address => uint256) public collateral;
 
-    // maps order id to order objects
-    mapping(uint256 => Order) idToOrder;
-
     // each smart meter has a user attached
     mapping(address => address) smartMeterToUser;
 
-    // stores matching results    
-    Match[] matches;
+    // 1: CA, 2: smart meter
+    mapping(address => uint8) identities;
 
-    bool isMatchingDone = false;
-        
+    // maps order id to order objects
+    Order[] orders;
+
     Order public minAsk = Order(0,0,0,0,0);
     Order public maxBid = Order(0,0,0,0,0);
-
     Order minReserveAsk = Order(0,0,0,0,0);
 
     // flex bids
     Order[] flexBids;
     uint256 flexBidVolume = 0;
     //Additional array for flex bids, more optimal
-    
-    //1: CA, 2: smart meter
-    mapping(address => uint8) identities;
 
+    // stores matching results    
+    Match[] matches;
+    // flag when matching done
+    bool isMatchingDone = false;
+            
     uint256 idCounter;
 
     uint8 public currState;
 
     uint256 public startBlock;
 
-    //Constructor
+    // constructor
     function Etherex(address _certificateAuthority) {
         identities[_certificateAuthority] = 1;
-        idCounter = 1;
-        startBlock = block.number; 
         currState = 0;
+        reset();
     }
 
-    //Modifiers
+    // reset
+    function reset() {
+        startBlock = block.number;
+        isMatchingDone = false;
+        delete orders;
+        // insert blanko order into orders
+        Order memory blank_order = Order(0, 0, 0, 0, 0);
+        orders.push(blank_order);
+        delete flexBids;
+        idCounter = 1;
+        minAsk.id = 0;
+        minAsk.nex = 0;
+        maxBid.id = 0;
+        maxBid.nex = 0;
+    }
+
+    // register Functions
+    function registerCertificateAuthority(address _ca) {
+        identities[_ca] = 1;
+    }
+
+    function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities() {
+        identities[_sm] = 2;
+        smartMeterToUser[_sm] = _user; 
+    }
+
+    // modifiers
     modifier onlyCertificateAuthorities() {
         if (identities[msg.sender] != 1) throw;
         _;
@@ -103,9 +127,9 @@ contract Etherex {
     State 1: Reserve Orders (initial: matching)
     */
     function updateState() internal {
-        if (inStateZero() && currState != 0){
+        if (inStateZero() && currState != 0) {
             currState = 0;    
-            determineReservePrice();
+            determineReserveAskPrice();
         } else if (inStateOne() && currState != 1) {
             currState = 1;
             matching();
@@ -128,33 +152,7 @@ contract Etherex {
         }
         return false;
     }
-    
-    //Register Functions
-    function registerCertificateAuthority(address _ca) {
-        identities[_ca] = 1;
-    }
-
-    function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities() {
-        identities[_sm] = 2;
-        smartMeterToUser[_sm] = _user; 
-    }
-
-    function reset() {
-        startBlock = block.number;
-        isMatchingDone = false;
-          /* 
-        TODO: 
-        Zu Beginn der Periode müssten alle Orders gelöscht werden. Können wir statt idToOrder mapping ein array benutzen? Das könnte man dann mit delete auf null setzen.      
-        */
-        //delete idToOrder;
-        delete flexBids;
-        idCounter = 1;
-        minAsk.id = 0;
-        minAsk.nex = 0;
-        maxBid.id = 0;
-        maxBid.nex = 0;
-    }
-    
+        
     // todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
     // todo(mg): prüfen ob ausreichend ether mitgeschickt wurde
     function submitBid(int256 _price, uint256 _volume) /*onlyUsers()*/ {
@@ -162,7 +160,7 @@ contract Etherex {
     }
 
     // calculate min ask to satisfy flexible bids on the way?
-    function submitAsk(int256 _price, uint256 _volume) onlySmartMeters()  {
+    function submitAsk(int256 _price, uint256 _volume) onlySmartMeters() {
         save_order("ASK", _price, _volume);
     } 
     
@@ -180,12 +178,13 @@ contract Etherex {
         flexBids.push(bid);
     }
 
-    function save_order(bytes32 _type, int256 _price, uint256 _volume) {
+    // process order saving
+    function save_order(bytes32 _type, int256 _price, uint256 _volume) internal {
         // allocate new order
         Order memory curr_order = Order(idCounter++, 0, msg.sender, _volume, _price);
 
         // temporär wird hier der order struct maxBid oder minAsk abgelegt.
-        Order memory best_order;            
+        Order memory best_order;         
 
         // dient der Invertierung vom Vergleichszeichen um aufsteigende und absteigende Reihenfolge in einer Funktion zu realisieren.
         int8 ascending = 0;
@@ -201,23 +200,23 @@ contract Etherex {
 
         // save and return if this the first bid
         if (best_order.id == 0) {
-            idToOrder[curr_order.id] = curr_order;
+            orders.push(curr_order);
             best_order = curr_order;
             
         } else {
             // iterate over list till same price encountered
             uint256 curr = best_order.id;
             uint256 prev = 0;
-            while ((ascending*curr_order.price) > (ascending*idToOrder[curr].price) && curr != 0) {
+            while ((ascending*curr_order.price) > (ascending*orders[curr].price) && curr != 0) {
                 prev = curr;
-                curr = idToOrder[curr].nex;
+                curr = orders[curr].nex;
             }
 
             // update pointer 
             curr_order.nex = curr;
     
             // insert order
-            idToOrder[curr_order.id] = curr_order;
+            orders.push(curr_order);
     
             // curr_order added at the end
             if (curr_order.nex == best_order.id) {
@@ -225,7 +224,7 @@ contract Etherex {
                 
             // at least one prev order exists
             } else {
-                idToOrder[prev].nex = curr_order.id;
+                orders[prev].nex = curr_order.id;
             }
         }
         
@@ -238,7 +237,7 @@ contract Etherex {
     }
 
     // TODO: von Alex den matching algorithmus implementieren. Hier steht glaube eine alternative Variante? 
-    function matching(){
+    function matching() {
         
     //     Order memory prevBid;
     //     Order memory prevAsk;
@@ -329,21 +328,21 @@ contract Etherex {
     mapping (uint256 => int256) public reservePriceForPeriod;                        // maps reserveprice to period
 
     //TODO Magnus time controlled
-    function determineReservePrice() returns (uint256) {
+    function determineReserveAskPrice() returns (uint256) {
         uint256 cumAskReserveVol = 0;
         int256 reserve_price = minAsk.price;
         bool isFound = false;
         uint256 ask_id_iter = minAsk.id;
 
         while(!isFound) {
-            while(idToOrder[ask_id_iter].price == reserve_price){
-                uint256 volume = idToOrder[ask_id_iter].volume;     // redundant, aber übersichtlicher
-                address owner = idToOrder[ask_id_iter].owner;
+            while(orders[ask_id_iter].price == reserve_price){
+                uint256 volume = orders[ask_id_iter].volume;     // redundant, aber übersichtlicher
+                address owner = orders[ask_id_iter].owner;
 
                 cumAskReserveVol += volume;
                 matchedReserveOrders[period][owner] = volume;
 
-                uint256 next_order = idToOrder[ask_id_iter].nex;
+                uint256 next_order = orders[ask_id_iter].nex;
                 if (next_order != 0){
                     ask_id_iter = next_order;
                 } else {
@@ -355,22 +354,22 @@ contract Etherex {
             if (cumAskReserveVol >= MIN_RESERVE_VOLUME) {
               isFound = true;
             } else {
-              reserve_price = idToOrder[ask_id_iter].price;
+              reserve_price = orders[ask_id_iter].price;
             }        
         }
-        // idToOrder löschen? 
+        // orders löschen? 
 
         reservePriceForPeriod[period] = reserve_price;
 
-        debug_determineReservePrice("determineReservePrice Method ended.",reserve_price,cumAskReserveVol);
+        debug_determineReserveAskPrice("determineReserveAskPrice Method ended.", reserve_price, cumAskReserveVol);
     }
 
-    event debug_determineReservePrice(string log,int256 reserve_price, uint256 cumAskReserveVol);
+    event debug_determineReserveAskPrice(string log, int256 reserve_price, uint256 cumAskReserveVol);
 
     ///////////////////
     // Helper functions, mainly for testing purposes
     ///////////////////
-
+ 
     function getOrderIdLastOrder() returns(uint256) {
         if (idCounter == 1) {
             return 0;
@@ -388,10 +387,10 @@ contract Etherex {
         uint256 id_iter_bid = maxBid.id;
         bidQuotes = rv1;
         bidAmounts = rv2;
-        while (idToOrder[id_iter_bid].volume != 0) {
-            bidAmounts.push(idToOrder[id_iter_bid].volume);
-            bidQuotes.push(idToOrder[id_iter_bid].price);
-            id_iter_bid = idToOrder[id_iter_bid].nex;
+        while (orders[id_iter_bid].volume != 0) {
+            bidAmounts.push(orders[id_iter_bid].volume);
+            bidQuotes.push(orders[id_iter_bid].price);
+            id_iter_bid = orders[id_iter_bid].nex;
         }
         return (bidQuotes, bidAmounts);
     }
@@ -406,28 +405,28 @@ contract Etherex {
         uint256 id_iter_ask = minAsk.id;
         askQuotes = rv1;
         askAmounts = rv2;
-        while (idToOrder[id_iter_ask].volume != 0) {
-            askQuotes.push(idToOrder[id_iter_ask].price);
-            askAmounts.push(idToOrder[id_iter_ask].volume);
-            id_iter_ask = idToOrder[id_iter_ask].nex;
+        while (orders[id_iter_ask].volume != 0) {
+            askQuotes.push(orders[id_iter_ask].price);
+            askAmounts.push(orders[id_iter_ask].volume);
+            id_iter_ask = orders[id_iter_ask].nex;
         }
         return (askQuotes, askAmounts);
     }
 
     function getOrderId(uint256 _orderId) returns(uint256) {
-        return idToOrder[_orderId].id;
+        return orders[_orderId].id;
     }
 
     function getOrderNext(uint256 _orderId) returns(uint256) {
-        return idToOrder[_orderId].nex;
+        return orders[_orderId].nex;
     }
 
     function getOrderPrice(uint256 _orderId) returns(int256) {
-        return idToOrder[_orderId].price;
+        return orders[_orderId].price;
     }
 
     function getOrderVolume(uint256 _orderId) returns(uint256) {
-        return idToOrder[_orderId].volume;
+        return orders[_orderId].volume;
     }
 
 }

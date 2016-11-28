@@ -33,7 +33,7 @@ contract('Etherex', function(accounts) {
     etherex = Etherex.deployed();
   });
 
-  describe('submit orders by consumers', function() {
+  describe.skip('submit orders by consumers', function() {
     it('The contract should be deployed to the blockchain', function(done) {
       assert(etherex);
       done();
@@ -92,7 +92,7 @@ contract('Etherex', function(accounts) {
       });
     });
 
-    beforeEach(function() {
+    afterEach(function() {
       return co(function*() {
         yield etherex.reset();
       });
