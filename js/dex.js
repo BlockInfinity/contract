@@ -741,11 +741,11 @@ function runtests(_users) {
 
     users = _users;
 
-    //testMatch("matched ask and bid order volumes should be the same");
+    testMatch("matched ask and bid order volumes should be the same");
 
-    //testPerfectSettle("the cumulative sum in the colleteral mapping should be zero, when users stick perfectly to their orders");
+    testPerfectSettle("the cumulative sum in the colleteral mapping should be zero, when users stick perfectly to their orders");
 
-    testRandomSettle("the cumulative sum in the colleteral mapping should be zero, when reserve users regulate perfectly the lack or excess of energy");
+    //testRandomSettle("the cumulative sum in the colleteral mapping should be zero, when reserve users regulate perfectly the lack or excess of energy");
 
 }
 
