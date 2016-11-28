@@ -5,9 +5,9 @@ const dex = require('../dex');
 
 describe('randomly generated asks and bids', function() {
 
-    // beforeEach(function() {
-    //     dex.resetOrders();
-    // });
+    beforeEach(function() {
+        dex.resetOrders();
+    });
 
     describe('test bid orders', function() {
         it('should insert bid orders in descending order', function() {
@@ -274,45 +274,3 @@ function submitRandomBidOrders(_users) {
 }
 
 
-// function test() {
-//     submitRandomBidReserveOrders(10);
-//     submitRandomAskReserveOrders(10);
-
-//     printBidOrders();
-//     printAskOrders();
-
-//     determineReserveBidPrice();
-//     determineReserveAskPrice();
-
-
-//     printReserveOrderMatchingResult();
-
-// }
-
-// function test(_users) {
-//     test_submit_bid(_users);456
-//     test_submit_ask(_users);
-//     printAskOrders();
-//     printBidOrders();
-
-//     match();
-//     printMatchingResult()
-
-//     if (!checkAskShare()) {
-//         debugger;
-//         throw new Error("Share of Ask orders does not fit")
-//     }
-//     printMatchedAskOrders();
-//     printMatchedBidOrders();
-//     test_submit_ask_reserve(_users);
-//     console.log("Reserve Ask Orderbook")
-//     printAskOrders();
-//     determineReserveAskPrice();
-//     printReserveOrderMatchingResult();
-//     test_settle();
-
-//     if (!check_colleteral()) {
-//         debugger;
-//         throw new Error("Cumulative colleteral is not zero")
-//     }
-// }
