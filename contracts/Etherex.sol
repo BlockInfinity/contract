@@ -155,52 +155,29 @@ contract Etherex {
         maxBid.nex = 0;
     }
     
-    //////////////////////////
-    // Submit bid/ask helper functions
-    //////////////////////////
-
-    //Returns next in list
-    function n(Order _o) internal returns(Order) {
-        return idToOrder[_o.nex];
+    // todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
+    // todo(mg): prüfen ob ausreichend ether mitgeschickt wurde
+    function submitBid(int256 _price, uint256 _volume) /*onlyUsers()*/ {
+        save_order("BID", _price, _volume);
     }
 
-    //Binds the node into list
-    function bind(Order _prev, Order _curr, Order _next) internal {
-        idToOrder[_curr.id] = _curr;
-        idToOrder[_prev.id] = _prev;
-        idToOrder[_next.id] = _next;
-    }
-
-    function remove(Order _prev, Order _curr) internal {
-        _prev.nex = n(_curr).id;
-        delete _curr;
+    // calculate min ask to satisfy flexible bids on the way?
+    function submitAsk(int256 _price, uint256 _volume) onlySmartMeters()  {
+        save_order("ASK", _price, _volume);
     } 
     
+    // producer can submit ask if he is able to supply two times the average needed volume of
+    // electricity
+    function submitReserveAsk(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyReserveUsers(_volume) {
+        save_order("ASK", _price, _volume);
+    }
+
     // put flex bid in separate flex bid pool
     function submitFlexBid(uint256 _volume) {
         Order memory bid;
         bid.volume = _volume;
         flexBidVolume += _volume;
         flexBids.push(bid);
-    }
-
-
-    function test_submitAsk(){
-        submitAsk(1,1);
-        submitAsk(6,2);
-        submitAsk(8,3);
-        submitAsk(4,3);
-        submitAsk(2,5);
-        submitAsk(12,5);
-    }
-
-    function test_submitBid(){
-        submitBid(1,1);
-        submitBid(6,2);
-        submitBid(8,3);
-        submitBid(4,3);
-        submitBid(2,5);
-        submitBid(12,5);
     }
 
     function save_order(bytes32 _type, int256 _price, uint256 _volume) {
@@ -213,11 +190,11 @@ contract Etherex {
         // dient der Invertierung vom Vergleichszeichen um aufsteigende und absteigende Reihenfolge in einer Funktion zu realisieren.
         int8 ascending = 0;
 
-        if (_type == "ASK"){
+        if (_type == "ASK") {
             best_order = minAsk;
             ascending = 1;  
             
-        } else if (_type == "BID"){
+        } else if (_type == "BID") {
             best_order = maxBid;
             ascending = -1;
         }
@@ -260,26 +237,8 @@ contract Etherex {
         }
     }
 
-    //todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
-    //todo (mg): prüfen ob ausreichend ether mitgeschickt wurde
-    function submitBid(int256 _price, uint256 _volume) /*onlyUsers()*/ {
-        save_order("BID",_price,_volume);
-    }
-
-    
-    // calculate min ask to satisfy flexible bids on the way?
-    function submitAsk(int256 _price, uint256 _volume) /*onlyUsers()*/  {
-        save_order("ASK",_price,_volume);
-    } 
-    
-    //Producer can submit ask if he is able to supply two times the average needed volume of
-    //electricity
-    function submitReserveAsk(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyReserveUsers(_volume){
-        save_order("ASK",_price,_volume);
-    }
-
     // TODO: von Alex den matching algorithmus implementieren. Hier steht glaube eine alternative Variante? 
-     function matching(){
+    function matching(){
         
     //     Order memory prevBid;
     //     Order memory prevAsk;
@@ -361,17 +320,13 @@ contract Etherex {
     //Settlement function called by smart meter
     function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters() {
 
-  
     }
 
     uint256 period = 0; // todo: needs to be upedated when state is changed
     uint256 MIN_RESERVE_VOLUME = 1000;  // todo: statt konstantem wert, durchschnittliches maximum eines Haushaltes iterativ berechnen und das produkt mit #haushalte als MIN_RESERVE_VOLUME setzen
 
-
-
     mapping (uint256 => mapping (address =>  uint256)) public matchedReserveOrders;   // maps volume to period and owner
     mapping (uint256 => int256) public reservePriceForPeriod;                        // maps reserveprice to period
-
 
     //TODO Magnus time controlled
     function determineReservePrice() returns (uint256) {
@@ -412,6 +367,10 @@ contract Etherex {
 
     event debug_determineReservePrice(string log,int256 reserve_price, uint256 cumAskReserveVol);
 
+    ///////////////////
+    // Helper functions, mainly for testing purposes
+    ///////////////////
+
     function getOrderIdLastOrder() returns(uint256) {
         if (idCounter == 1) {
             return 0;
@@ -419,57 +378,56 @@ contract Etherex {
         return idCounter-1;
     }
 
-        /*
+    /*
     Returns ordered list of bid orders 
     author: Magnus
     */
     int256[] bidQuotes;
     uint256[] bidAmounts;
-    function getBidOrders() constant returns (int256[] rv1,uint256[] rv2) {
+    function getBidOrders() constant returns (int256[] rv1, uint256[] rv2) {
         uint256 id_iter_bid = maxBid.id;
         bidQuotes = rv1;
         bidAmounts = rv2;
-
-        while (idToOrder[id_iter_bid].volume != 0){
+        while (idToOrder[id_iter_bid].volume != 0) {
             bidAmounts.push(idToOrder[id_iter_bid].volume);
             bidQuotes.push(idToOrder[id_iter_bid].price);
             id_iter_bid = idToOrder[id_iter_bid].nex;
         }
-        return(bidQuotes,bidAmounts);
+        return (bidQuotes, bidAmounts);
     }
 
-     /*
+    /*
     Returns ordered list of ask orders 
     author: Magnus
     */
     int256[] askQuotes;
     uint256[] askAmounts;
-    function getAskOrders() constant returns (int256[] rv1,uint256[] rv2){
+    function getAskOrders() constant returns (int256[] rv1, uint256[] rv2) {
+        uint256 id_iter_ask = minAsk.id;
         askQuotes = rv1;
         askAmounts = rv2;
-        uint256 id_iter_ask = minAsk.id;
-        while (idToOrder[id_iter_ask].volume != 0){
+        while (idToOrder[id_iter_ask].volume != 0) {
             askQuotes.push(idToOrder[id_iter_ask].price);
             askAmounts.push(idToOrder[id_iter_ask].volume);
             id_iter_ask = idToOrder[id_iter_ask].nex;
         }
-        return(askQuotes,askAmounts);
+        return (askQuotes, askAmounts);
     }
 
-    // Helper functions, mainly for testing purposes
-    // TODO: Ich habe den Preis nun als int256 geklariert, deswegen wird hier ein error geworfen. Ausbessern! 
-    // function getOrderPropertyById(uint256 _orderId, uint _property) returns(uint256) {
-    //     if (_property == 0) {
-    //         return idToOrder[_orderId].id;
-    //     } else if (_property == 1) {
-    //         return idToOrder[_orderId].nex;
-    //     } else if (_property == 2) {
-    //         return idToOrder[_orderId].price;
-    //     } else if (_property == 3) {
-    //         return idToOrder[_orderId].volume;
-    //     } else {
-    //         return 0;
-    //     }
-    // }
+    function getOrderId(uint256 _orderId) returns(uint256) {
+        return idToOrder[_orderId].id;
+    }
+
+    function getOrderNext(uint256 _orderId) returns(uint256) {
+        return idToOrder[_orderId].nex;
+    }
+
+    function getOrderPrice(uint256 _orderId) returns(int256) {
+        return idToOrder[_orderId].price;
+    }
+
+    function getOrderVolume(uint256 _orderId) returns(uint256) {
+        return idToOrder[_orderId].volume;
+    }
 
 }

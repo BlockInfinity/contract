@@ -111,18 +111,18 @@ contract('Etherex', function(accounts) {
         for (var i = 0; i < 10; i++) {
           yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
           var lastOrderId = yield etherex.getOrderIdLastOrder.call();
-          orderIds.push(lastOrderId.toNumber());
+          orderIds.unshift(lastOrderId.toNumber());
         }
 
         for (var i = 0; i < orderIds.length; i++) {
-          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          var orderId = yield etherex.getOrderId.call(orderIds[i]);
           assert(orderIds[i] === orderId.toNumber());
-          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
-          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() + 1)) === nex.toNumber());
-          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
-          assert(i * priceMultiplier === price.toNumber());
-          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
-          assert(i * volumeMultiplier === volume.toNumber());
+          var nex = yield etherex.getOrderNext.call(orderIds[i]);
+          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() - 1)) === nex.toNumber());
+          var price = yield etherex.getOrderPrice.call(orderIds[i]);
+          assert((orderIds.length - i - 1) * priceMultiplier === price.toNumber());
+          var volume = yield etherex.getOrderVolume.call(orderIds[i]);
+          assert((orderIds.length - i - 1) * volumeMultiplier === volume.toNumber());
         }
       })).not.to.be.rejected;
     });
@@ -134,18 +134,18 @@ contract('Etherex', function(accounts) {
         for (var i = 9; i >= 0; i--) {
           yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
           var lastOrderId = yield etherex.getOrderIdLastOrder.call();
-          orderIds.unshift(lastOrderId.toNumber());
+          orderIds.push(lastOrderId.toNumber());
         }
 
         for (var i = 0; i < orderIds.length; i++) {
-          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          var orderId = yield etherex.getOrderId.call(orderIds[i]);
           assert(orderIds[i] === orderId.toNumber());
-          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
-          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() - 1)) === nex.toNumber());
-          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
-          assert(i * priceMultiplier === price.toNumber());
-          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
-          assert(i * volumeMultiplier === volume.toNumber());
+          var nex = yield etherex.getOrderNext.call(orderIds[i]);
+          assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() + 1)) === nex.toNumber());
+          var price = yield etherex.getOrderPrice.call(orderIds[i]);
+          assert((orderIds.length - i - 1) * priceMultiplier === price.toNumber());
+          var volume = yield etherex.getOrderVolume.call(orderIds[i]);
+          assert((orderIds.length - i - 1) * volumeMultiplier === volume.toNumber());
         }
       })).not.to.be.rejected;
     });
@@ -167,13 +167,13 @@ contract('Etherex', function(accounts) {
         }
 
         for (var i = 0; i < orderIds.length; i++) {
-          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          var orderId = yield etherex.getOrderId.call(orderIds[i]);
           assert(orderIds[i] === orderId.toNumber());
-          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
+          var nex = yield etherex.getOrderNext.call(orderIds[i]);
           assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() + 1)) === nex.toNumber());
-          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
+          var price = yield etherex.getOrderPrice.call(orderIds[i]);
           assert(i * priceMultiplier === price.toNumber());
-          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
+          var volume = yield etherex.getOrderVolume.call(orderIds[i]);
           assert(i * volumeMultiplier === volume.toNumber());
         }
       })).not.to.be.rejected;
@@ -190,46 +190,17 @@ contract('Etherex', function(accounts) {
         }
 
         for (var i = 0; i < orderIds.length; i++) {
-          var orderId = yield etherex.getOrderPropertyById.call(orderIds[i], 0);
+          var orderId = yield etherex.getOrderId.call(orderIds[i]);
           assert(orderIds[i] === orderId.toNumber());
-          var nex = yield etherex.getOrderPropertyById.call(orderIds[i], 1);
+          var nex = yield etherex.getOrderNext.call(orderIds[i]);
           assert((i === (orderIds.length - 1) ? 0 : (orderId.toNumber() - 1)) === nex.toNumber());
-          var price = yield etherex.getOrderPropertyById.call(orderIds[i], 2);
+          var price = yield etherex.getOrderPrice.call(orderIds[i]);
           assert(i * priceMultiplier === price.toNumber());
-          var volume = yield etherex.getOrderPropertyById.call(orderIds[i], 3);
+          var volume = yield etherex.getOrderVolume.call(orderIds[i]);
           assert(i * volumeMultiplier === volume.toNumber());
         }
       })).not.to.be.rejected;
     });
   });
 
-  // it('#submitBid storage check', function(done) {
-  //   //TODO adding random bids from random consumers
-  //   //console.log(etherex.minBid);
-  //   done();
-  // });
-
-  // describe('#matching', function() {
-  //   it('Matching should be done correctly (dependant on the algorithm)', function(done) {
-  //       done();
-  //     });
-  // });
-
-  // describe('#updateState', function() {
-  //   it('State should update correctly dependant on blocks', function(done) {
-  //     done();
-  //   });
-  // });
-
-  // describe('#determineReservePrice', function() {
-  //   it('Correctness of determining the reserve price', function(done) {
-  //     done();
-  //   });
-  // });
-
-  // describe('#settle', function() {
-  //   it('Correctness of settleing', function(done) {
-  //     done();
-  //   });
-  // });
 });
