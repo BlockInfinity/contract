@@ -36,6 +36,9 @@ var matchingPriceMapping = {};
 var askReservePrices = {};
 var bidReservePrices = {};
 
+// total number of smart meters
+var numberOfRegisteredUsers = 0;
+
 // ####################################################################################
 // ############################## Zyklus Variablen ####################################
 // ####################################################################################
@@ -75,6 +78,19 @@ var matching_price;
 // anteil von bid / ask volume der verbraucht/geliefert werden kann
 var share;
 
+// variables for settlement
+var sumProduced = 0;
+var sumConsumed = 0;
+var sumReserveProduced = 0;
+var sumReserveConsumed = 0;
+var excess = 0;
+var lack = 0;
+var settleCounter = 0;
+var isFirstSettle = true;
+
+// reserve order data for the endSettle function
+var askReserveSmData = {};
+var bidReserveSmData = {};
 
 
 // bid idToOrder without _maxprice are simply idToOrder with
@@ -448,18 +464,6 @@ function determineReserveBidPrice() {
     bidReservePrices[period] = reserveBidPrice;
 }
 
-var settleCounter = 0;
-var isFirstSettle = true;
-var numberOfRegisteredUsers = 0;
-
-var sumProduced = 0;
-var sumConsumed = 0;
-var sumReserveProduced = 0;
-var sumReserveConsumed = 0;
-
-var askReserveSmData = {};
-var bidReserveSmData = {};
-
 
 function settle(_user, _type, _volume, _period) {
     if (!_user) {
@@ -498,10 +502,6 @@ function settle(_user, _type, _volume, _period) {
     var offered = 0;
     var diff;
 
-    // ONLY FOR TESTING
-    var bidIssuers = _.keys(matchedBidOrderMapping[_period]).length;
-    var askIssuers = _.keys(matchedAskOrderMapping[_period]).length;
-
     var reserveAskPrice = askReservePrices[_period];
     var reserveBidPrice = bidReservePrices[_period];
     var matchingPrice = matchingPriceMapping[_period];
@@ -536,14 +536,16 @@ function settle(_user, _type, _volume, _period) {
             // user hat zu wenig Strom eingespeist
             if (_volume < offered) {
                 diff = offered - _volume;
-                colleteral[user] -= (diff * reserveAskPrice);
-                
                 colleteral[user] += _volume * matchingPrice;
+                colleteral[user] -= (diff * reserveAskPrice);
+                lack += diff;
+                // user hat zu viel strom eingespeist
             } else if (_volume > offered) {
                 diff = _volume - offered;
-                colleteral[user] += diff * reserveBidPrice;
-                
                 colleteral[user] += offered * matchingPrice;
+                colleteral[user] += diff * reserveBidPrice;
+                excess += diff;
+                // user hat genau so viel strom eingepeist wie abgemacht
             } else {
                 colleteral[user] += _volume * matchingPrice;
             }
@@ -553,7 +555,7 @@ function settle(_user, _type, _volume, _period) {
             // FALL 3: No Order emitted
         } else {
             colleteral[user] += (_volume * reserveBidPrice);
-            
+            excess += diff;
             sumProduced += _volume;
         }
 
@@ -567,11 +569,8 @@ function settle(_user, _type, _volume, _period) {
                 console.warn("Reserve Bid Position already settled.");
                 return false;
             }
-
             var orderVolume = matchedBidReserveOrderMapping[_period][user].volume;
-
             bidReserveSmData[period].push({ user: user, smVolume: _volume, orderVolume: orderVolume });
-
             sumReserveConsumed += _volume;
 
             // FALL 2: Bid Order issuer
@@ -580,19 +579,20 @@ function settle(_user, _type, _volume, _period) {
                 console.warn("Normal Bid Position already settled.");
                 return false;
             }
-
             ordered = matchedBidOrderMapping[_period][user].volume;
-
-            if (_volume > ordered) { // user hat zu viel Strom bezogen
+            // user hat zu viel Strom verbraucht
+            if (_volume > ordered) {
                 diff = _volume - ordered;
                 colleteral[user] -= (diff * reserveAskPrice);
-                
+                lack += diff;
                 colleteral[user] -= (ordered * matchingPrice);
+                // user hat zu wenig Strom verbraucht
             } else if (_volume < ordered) {
                 diff = ordered - _volume;
                 colleteral[user] -= (_volume * matchingPrice);
                 colleteral[user] += (diff * reserveBidPrice);
-
+                excess += diff;
+                // user hat genau so viel verbraucht wie zuvor vereinbart
             } else {
                 colleteral[user] -= (_volume * matchingPrice);
             }
@@ -604,14 +604,14 @@ function settle(_user, _type, _volume, _period) {
             // FALL 3: No Order emitted
         } else {
             colleteral[user] -= (_volume * reserveAskPrice);
-            
+            lack += diff;
             sumConsumed += _volume;
         }
     }
 
     settleCounter++;
 
-    // TODO beim Eingang des letztes sm die endSettle funktion aufrufen
+    // TODO: endSettle Funktion muss beim Eingang des letzten smart meter datensatzes automatisch ausgeführt werden
     // if (settleCounter === numberOfRegisteredUsers) {
     //     console.log("last settlement happened");
     // }
@@ -619,35 +619,52 @@ function settle(_user, _type, _volume, _period) {
     return success;
 }
 
-function endSettle(_period) {
-    if (sumConsumed > sumProduced) {
-        var diff = sumConsumed - sumProduced;
-        for (var i in askReserveSmData[_period]) {
-            var orderVolume = askReserveSmData[_period][i].orderVolume;
+function endSettle(_period, _lack, _excess) {
+
+    var diff = _excess - _lack;
+
+    // TODO: zuerst die reserve users in askReseverSmData mit dem besten Preis abrechnen
+    if (diff >= 0) {
+        for (var i in bidReserveSmData[_period]) {
             var smVolume = askReserveSmData[_period][i].smVolume;
             var user = askReserveSmData[_period][i].user;
-            if (smVolume <= orderVolume && smVolume <= diff) {
-                colleteral[user] += smVolume * reserveAskPrice;
+            if (smVolume <= diff) {
+                colleteral[user] -= smVolume * reserveBidPrice;
                 diff -= smVolume;
-            } else if (smVolume > orderVolume && smVolume <= diff) {
-                colleteral[user] += orderVolume * reserveAskPrice;
-                colleteral[user] += (smVolume - orderVolume) * reserveBidPrice;
-                diff -= smVolume;
-            } else if (smVolume <= orderVolume && smVolume > diff) {
-                colleteral[user] += diff * reserveAskPrice;
-            } else if (smVolume > orderVolume && smVolume > diff) {
-                if (diff <= orderVolume) {
-                    colleteral[user] += diff * reserveAskPrice;
-                } else {
-                    colleteral[user] += orderVolume * reserveAskPrice;
-                    colleteral[user] += (diff - orderVolume) * reserveBidPrice;
-                }
+            } else { // else if (smVolume > diff)
+                colleteral[user] -= diff * reserveBidPrice;
+                colleteral[user] -= (smVolume - diff) * reserveAskPrice; 
+                diff = 0;
             }
         }
-    } else {
+    }
 
+    if (diff <= 0) {
+        diff = Math.abs(diff);
+        for (var i in askReserveSmData[_period]) {
+            var smVolume = askReserveSmData[_period][i].smVolume;
+            var user = askReserveSmData[_period][i].user;
+            if (smVolume <= diff) {
+                colleteral[user] += smVolume * reserveAskPrice;
+                diff -= smVolume;
+            } else {
+                colleteral[user] += diff * reserveAskPrice;
+                colleteral[user] += (smVolume - diff) * reserveBidPrice;
+                diff = 0;
+            }
+        }
+    }
+
+    var moneyLeft = checkColleteral();
+    var shareOfEachUser = Math.abs(moneyLeft / _.keys(colleteral).length);
+
+    // TODO: statt alle zu entlohnen, nur die welche in der letzten Periode mitgemacht haben
+    for (user in colleteral){
+        colleteral[user] += shareOfEachUser;
     }
 }
+
+
 
 // getters
 function getMatchedAskOrders() {
@@ -745,12 +762,13 @@ function runtests(_users) {
 
     //testPerfectSettle("the cumulative sum in the colleteral mapping should be zero, when users stick perfectly to their orders");
 
+    
     testRandomSettle("the cumulative sum in the colleteral mapping should be zero, when reserve users regulate perfectly the lack or excess of energy");
 
 }
 
 function testMatch(text) {
-    console.group('Matching Test');
+    console.groupCollapsed('Matching Test');
     submitRandomBidOrders(users);
     submitRandomAskOrders(users);
     printBidOrders();
@@ -775,65 +793,24 @@ function testMatch(text) {
 
 
 function testPerfectSettle(text) {
-    console.group("Perfect Settlement Test");
-    submitRandomAskOrders(users);
-    submitRandomBidOrders(users);
-    printAskOrders();
-    printBidOrders();
-    match();
-    printMatchedAskOrders();
-    printMatchedBidOrders();
-    printMatchingResult();
-    submitRandomBidReserveOrders(users);
-    submitRandomAskReserveOrders(users);
-    printAskOrders();
-    printBidOrders();
-    determineReserveAskPrice();
-    determineReserveBidPrice();
-    printReserveOrderMatchingResult();
+    console.groupCollapsed("Perfect Settlement Test");
+    beforeSettle();
     perfectSettle();
-
-    var sum = 0;
-    for (var i in colleteral) {
-        sum += colleteral[i];
-
-    }
+    endSettle(period,lack,excess);
     console.groupEnd();
+    var sum = checkColleteral();
     assert((sum == 0 || (sum < 0.001 && sum > -0.001)), text);
 }
 
-// TODO LESEZEICHEN: alle smart meter ask werte müssen aufsummiert gleich den bid werten sein
-// function testReserveOrders(text) {
-//     var sumProduced = 0;
-//     for (var user in matchedBidReserveOrderMapping[period]) {
-//         sumProduced += matchedBidReserveOrderMapping[period];
-//     }
-//     sumProduced +
-
-
-//         for (var user in matchedBidReserveOrderMapping[period]) {
-//             sum += matchedBidReserveOrderMapping[period];
-//         }
-
-// }
 
 function testRandomSettle(text) {
-    console.group("Random Settlement Test");
-    submitRandomAskOrders(users);
-    submitRandomBidOrders(users);
-    match();
-    submitRandomBidReserveOrders(users);
-    submitRandomAskReserveOrders(users);
-    determineReserveAskPrice();
-    determineReserveBidPrice();
+    console.groupCollapsed("Random Settlement Test");
+    beforeSettle();
     randomSettle();
+    endSettle(period,lack,excess);
     checkEnergyBalance();
-    var sum = 0;
-    for (var i in colleteral) {
-        sum += colleteral[i];
-
-    }
     console.groupEnd();
+    var sum = checkColleteral();
     assert(sum == 0 || (sum < 0.001 && sum > -0.001), text);
 }
 
@@ -851,6 +828,24 @@ var sumReserved = 0;
 
 // unique owner id for each submitted order
 var owner = 1;
+
+function beforeSettle() {
+    submitRandomAskOrders(users);
+    submitRandomBidOrders(users);
+    printAskOrders();
+    printBidOrders();
+    match();
+    printMatchedAskOrders();
+    printMatchedBidOrders();
+    printMatchingResult();
+    submitRandomBidReserveOrders(users);
+    submitRandomAskReserveOrders(users);
+    printAskOrders();
+    printBidOrders();
+    determineReserveAskPrice();
+    determineReserveBidPrice();
+    printReserveOrderMatchingResult();
+}
 
 // settlement mit Erzeugungs- und Verbrauchsdaten, welche den zuvor abgegebenen order volumes entsprechen. Es kommt nicht zu einem Ungleichgewicht und die Reserve Users mÃ¼ssen nicht eingreifen
 function perfectSettle() {
@@ -1019,7 +1014,8 @@ function checkColleteral() {
     for (var i in colleteral) {
         sum += colleteral[i];
     }
-    return (sum == 0 || (sum < 0.001 && sum > -0.001));
+    return sum;
+    //return (sum == 0 || (sum < 0.001 && sum > -0.001));
 }
 
 function checkEnergyBalance() {
