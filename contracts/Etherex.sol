@@ -260,6 +260,9 @@ contract Etherex {
         uint256 next;
         uint256 share;
 
+        delete currMatchedAskOrderMapping;
+        delete currMatchedBidOrderMapping;
+
         while (!isMatched) {
             // cumulates ask volume for fixed price level
             // Todo(ms): Optimize: Precompute cumulated volume for orders with same same price,
