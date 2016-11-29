@@ -762,8 +762,8 @@ function runtests(_users) {
 
     //testPerfectSettle("the cumulative sum in the colleteral mapping should be zero, when users stick perfectly to their orders");
 
-    
     testRandomSettle("the cumulative sum in the colleteral mapping should be zero, when reserve users regulate perfectly the lack or excess of energy");
+
 
 }
 
