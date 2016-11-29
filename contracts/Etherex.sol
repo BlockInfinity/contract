@@ -170,6 +170,10 @@ contract Etherex {
         save_order("ASK", _price, _volume);
     }
 
+    function submitReserveBid(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyReserveUsers(_volume) {
+        save_order("BID", _price, _volume);
+    }
+
     // put flex bid in separate flex bid pool
     function submitFlexBid(uint256 _volume) {
         Order memory bid;
@@ -326,6 +330,47 @@ contract Etherex {
 
     mapping (uint256 => mapping (address =>  uint256)) public matchedReserveOrders;   // maps volume to period and owner
     mapping (uint256 => int256) public reservePriceForPeriod;                        // maps reserveprice to period
+    mapping (uint256 => int256) public reserveBidPriceForPeriod;
+
+
+    function determineReserveBidPrice() returns (int256) {
+        uint256 cumBidReserveVol = 0;
+        int256 reserveBidPrice = maxBid.price;
+        bool isFound = false;
+        uint256 bidIterId = maxBid.id;
+
+        while(!isFound) {
+            while(orders[bidIterId].price == reserveBidPrice) {
+                uint256 volume = orders[bidIterId].volume;
+                address owner = orders[bidIterId].owner;
+
+                cumBidReserveVol += volume;
+                matchedReserveOrders[period][owner] = volume;
+
+                uint256 nextOrder = orders[bidIterId].nex;
+
+                if(nextOrder != 0) {
+                    bidIterId = nextOrder;
+                } else {
+                    isFound = true;
+                    break;
+                }
+
+            }
+
+            if(cumBidReserveVol >= MIN_RESERVE_VOLUME) {
+                isFound = true;
+            } else {
+                reserveBidPrice = orders[bidIterId].price;
+            }
+        }
+
+        reserveBidPriceForPeriod[period] = reserveBidPrice;
+
+
+
+    }
+
 
     //TODO Magnus time controlled
     function determineReserveAskPrice() returns (uint256) {
