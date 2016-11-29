@@ -33,7 +33,7 @@ contract('Etherex', function(accounts) {
     etherex = Etherex.deployed();
   });
 
-  describe.skip('submit orders by consumers', function() {
+  describe('submit orders by consumers', function() {
     it('The contract should be deployed to the blockchain', function(done) {
       assert(etherex);
       done();
@@ -199,6 +199,45 @@ contract('Etherex', function(accounts) {
           var volume = yield etherex.getOrderVolume.call(orderIds[i]);
           assert(i * volumeMultiplier === volume.toNumber());
         }
+      })).not.to.be.rejected;
+    });
+  });
+
+  describe('match bid and ask orders', function() {
+
+    var priceMultiplier = 100;
+    var volumeMultiplier = 100;
+
+    beforeEach(function() {
+      return co(function*() {
+        for (var i = 0; i < certificateAuthorities.length; i++) {
+          assert(certificateAuthorities[i]);
+          yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
+        }
+
+        for (var i = 0; i < producers.length; i++) {
+          assert(producers[i]);
+          assert(consumers[i]);
+          yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
+        }
+
+        for (var i = 0; i < 10; i++) {
+          yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
+          yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
+        }
+      });
+    });
+
+    afterEach(function() {
+      return co(function*() {
+        yield etherex.reset();
+      });
+    });
+
+    // Todo(ms): fix test, check content of matched orders
+    it('call match() - should work', function() {
+      return expect(co(function*() {
+        etherex.matching();
       })).not.to.be.rejected;
     });
   });
