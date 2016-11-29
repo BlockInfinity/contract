@@ -11,18 +11,15 @@ contract Etherex {
 
     struct Order {
         uint256 id;
-        uint256 nex;
+        uint256 next;
         address owner;
         uint256 volume;
         int256 price;
     }
 
     struct Match {
+        uint256 orderId;
         uint256 volume;
-        uint256 price;
-        address askOwner;
-        address bidOwner;
-        uint256 timestamp;
     }
 
     uint256 RESERVE_PRODUCER_MIN_VOL = 100000;
@@ -52,7 +49,12 @@ contract Etherex {
     //Additional array for flex bids, more optimal
 
     // stores matching results    
-    Match[] matches;
+    mapping(uint256 => mapping(address => uint256)) matchedAskOrderMapping;
+    mapping(uint256 => mapping(address => uint256)) matchedBidOrderMapping;
+    mapping(uint256 => int256) matchingPriceMapping;
+    uint256[] currMatchedAskOrderMapping;
+    uint256[] currMatchedBidOrderMapping;
+
     // flag when matching done
     bool isMatchingDone = false;
             
@@ -80,9 +82,9 @@ contract Etherex {
         delete flexBids;
         idCounter = 1;
         minAsk.id = 0;
-        minAsk.nex = 0;
+        minAsk.next = 0;
         maxBid.id = 0;
-        maxBid.nex = 0;
+        maxBid.next = 0;
     }
 
     // register Functions
@@ -171,6 +173,7 @@ contract Etherex {
     }
 
     // put flex bid in separate flex bid pool
+    // Todo(ms): set all variables, not only volume (bad practise)
     function submitFlexBid(uint256 _volume) {
         Order memory bid;
         bid.volume = _volume;
@@ -209,113 +212,113 @@ contract Etherex {
             uint256 prev = 0;
             while ((ascending*curr_order.price) > (ascending*orders[curr].price) && curr != 0) {
                 prev = curr;
-                curr = orders[curr].nex;
+                curr = orders[curr].next;
             }
 
             // update pointer 
-            curr_order.nex = curr;
+            curr_order.next = curr;
     
             // insert order
             orders.push(curr_order);
     
             // curr_order added at the end
-            if (curr_order.nex == best_order.id) {
+            if (curr_order.next == best_order.id) {
                 best_order = curr_order;
                 
             // at least one prev order exists
             } else {
-                orders[prev].nex = curr_order.id;
+                orders[prev].next = curr_order.id;
             }
         }
         
         // best orders werden im storage geupdated
-        if (_type == "ASK"){
+        if (_type == "ASK") {
             minAsk = best_order;      
-        } else if (_type == "BID"){
+        } else if (_type == "BID") {
             maxBid = best_order;        
         }
     }
 
-    // TODO: von Alex den matching algorithmus implementieren. Hier steht glaube eine alternative Variante? 
+    // match bid and ask orders
     function matching() {
-        
-    //     Order memory prevBid;
-    //     Order memory prevAsk;
-    //     Order memory currBid = maxBid;
-    //     Order memory currAsk = minAsk;
-    //     uint tmp;
-        
-    //     //Solve flexible bids first
-    //     uint256 askVolume = 0;
-    //     uint256 price = 0;
-    //     while(askVolume < flexBidVolume && currAsk.id != 0) {       
-    //         askVolume += currAsk.volume;
-    //         price = currAsk.price;
-    //         currAsk = n(currAsk);
-    //     }
+        if (orders.length == 1) {
+            reset();
+            return;
+        }
 
-    //     currAsk = minAsk;
-    //     //Wouldnt it be fair that all of them go to the aftermarket
-    //     //instead of only the last one? Round-robin too much?
-    //     for(uint i = 0; i < flexBids.length && currAsk.id != 0; i++ ) {
-    //         if(currAsk.volume > flexBids[i].volume) {
-    //             matches.push(Match(flexBids[i].volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-    //             currAsk.volume -= flexBids[i].volume;
-    //         }else if(currAsk.volume < flexBids[i].volume) {
-    //             matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-    //             flexBids[i].volume -= currAsk.volume;
-    //             prevAsk = currAsk;
-    //             currAsk=n(currAsk);
-    //             delete prevAsk;
-    //             i-=1;
-    //         } else {
-    //             matches.push(Match(currAsk.volume, price, currAsk.owner, flexBids[i].owner, block.timestamp));
-    //             prevAsk = currAsk;
-    //             currAsk=n(currAsk);
-    //             delete prevAsk; 
-    //         }
-    //     }
-    //     //Matching of bids and asks with fixed price
-    //     //Iterate till you come to the end of ask or bid lists
-    //     while(currAsk.id != 0 && currBid.id != 0) {
+        uint256 cumAskVol = 0;
+        uint256 cumBidVol = 0;
 
-    //         //Round robin so that everyone gets something?
-    //         if(currAsk.volume > currBid.volume) {
-    //             //Delete the bid
-    //             matches.push(Match(currBid.volume, currAsk.price, currAsk.owner, currBid.owner, block.timestamp));
-    //             currAsk.volume -= currBid.volume;
-    //             prevBid = currBid;
-    //             currBid=n(currBid);
-    //             delete prevBid;
+        int256 matchingPrice = orders[minAsk.id].price;
+        bool isMatched = false;
+        bool outOfAskOrders = false;
 
-    //         } else if(currAsk.volume < currBid.volume) {
-    //             //Delete the ask
-    //             matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
-    //             currBid.volume -= currAsk.volume;
-    //             prevAsk = currAsk;
-    //             currAsk=n(currAsk);
-    //             delete prevAsk; 
-    //         } else {
-    //             //Delete both bid and ask
-    //             matches.push(Match(currAsk.volume, price, currAsk.owner, currBid.owner, block.timestamp));
-    //             prevAsk = currAsk;
-    //             currAsk=n(currAsk);
-    //             delete prevAsk;
-    //             prevBid = currBid;
-    //             currBid=n(currBid);
-    //             delete prevBid;
-    //         }
+        uint256 currAsk = minAsk.id;
+        uint256 currBid = maxBid.id;
+        period++;
 
+        uint256 next;
+        uint256 share;
 
-    //     }
-    //     minAsk.id = 0;
-    //     maxBid.id = 0;
-        
-    //     isMatchingDone = true;
-    //     //What remains remains...
-     }
+        while (!isMatched) {
+            // cumulates ask volume for fixed price level
+            // Todo(ms): Optimize: Precompute cumulated volume for orders with same same price,
+            // then use here instead of iterating over it
+            while (currAsk != 0 && orders[currAsk].price == matchingPrice) {
+                cumAskVol += orders[currAsk].volume;
+                currMatchedAskOrderMapping.push(orders[currAsk].id);
+                next = orders[currAsk].next;
+                if (next != 0) {
+                    currAsk = next;
+                } else {
+                    outOfAskOrders = true;
+                    break;
+                }
+            }
+
+            // cumulates ask volume for order price greater then or equal to matching price
+            // Todo(ms): Optimize: Precompute cumulated volume for orders with same same price,
+            // then use here instead of iterating over it
+            while (orders[currBid].price >= matchingPrice) {
+                cumBidVol += orders[currBid].volume;
+                currMatchedBidOrderMapping.push(orders[currBid].id);
+                currBid = orders[currBid].next;
+                if (currBid == 0) {
+                    break;
+                }
+            }
+
+            if (cumAskVol >= cumBidVol || outOfAskOrders) {
+                isMatched = true;
+            } else {
+                matchingPrice = orders[currAsk].price;
+                currBid = maxBid.id;
+                cumBidVol = 0;
+                // Todo(ms): do not delete, just traverse in reverse order and reuse existing array
+                delete currMatchedBidOrderMapping;
+            }
+        }
+
+        // calculates how much volume each producer can release into 
+        // the grid within the next interval
+        if (cumBidVol < cumAskVol) {
+            // todo(ms): solidity doesnt support floating data types, check what happens here
+            share = cumBidVol / cumAskVol;
+            for (uint256 i=0; i<currMatchedAskOrderMapping.length; i++) {
+                matchedAskOrderMapping[period][orders[currMatchedAskOrderMapping[i]].owner] 
+                = orders[currMatchedAskOrderMapping[i]].volume * share;
+            }
+        } else {
+            share = cumAskVol / cumBidVol;
+            for (uint256 j=0; j<currMatchedBidOrderMapping.length; j++) {
+                matchedBidOrderMapping[period][orders[currMatchedBidOrderMapping[j]].owner] 
+                = orders[currMatchedBidOrderMapping[j]].volume * share;
+            }
+        }
+
+        matchingPriceMapping[period] = matchingPrice;
+    }
     
-
     //Settlement function called by smart meter
     function settle(uint256 _consumedVolume, uint256 _timestamp) onlySmartMeters() {
 
@@ -342,7 +345,7 @@ contract Etherex {
                 cumAskReserveVol += volume;
                 matchedReserveOrders[period][owner] = volume;
 
-                uint256 next_order = orders[ask_id_iter].nex;
+                uint256 next_order = orders[ask_id_iter].next;
                 if (next_order != 0){
                     ask_id_iter = next_order;
                 } else {
@@ -390,7 +393,7 @@ contract Etherex {
         while (orders[id_iter_bid].volume != 0) {
             bidAmounts.push(orders[id_iter_bid].volume);
             bidQuotes.push(orders[id_iter_bid].price);
-            id_iter_bid = orders[id_iter_bid].nex;
+            id_iter_bid = orders[id_iter_bid].next;
         }
         return (bidQuotes, bidAmounts);
     }
@@ -408,7 +411,7 @@ contract Etherex {
         while (orders[id_iter_ask].volume != 0) {
             askQuotes.push(orders[id_iter_ask].price);
             askAmounts.push(orders[id_iter_ask].volume);
-            id_iter_ask = orders[id_iter_ask].nex;
+            id_iter_ask = orders[id_iter_ask].next;
         }
         return (askQuotes, askAmounts);
     }
@@ -418,7 +421,7 @@ contract Etherex {
     }
 
     function getOrderNext(uint256 _orderId) returns(uint256) {
-        return orders[_orderId].nex;
+        return orders[_orderId].next;
     }
 
     function getOrderPrice(uint256 _orderId) returns(int256) {

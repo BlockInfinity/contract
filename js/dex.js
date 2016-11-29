@@ -66,16 +66,12 @@ var maxBid = {
     price: 0,
 };
 
-// bei dem matching_price vorhandene volume
+// matching related metrics
+// global for printing purposes
 var cumAskVol = 0;
 var cumBidVol = 0;
-
-var matching_price;
-
-// anteil von bid / ask volume der verbraucht/geliefert werden kann
-var share;
-
-
+var matching_price = 0;
+var share = 0;
 
 // bid idToOrder without _maxprice are simply idToOrder with
 // a very high _maxprice (flex bid).
@@ -224,20 +220,16 @@ function match() {
 
     cumAskVol = 0;
     cumBidVol = 0;
-    matching_price = 0;
-
-
     matching_price = idToOrder[minAsk.id].price;
     var isMatched = false;
     var outOfAskOrders = false;
-    var bid_price = idToOrder[maxBid.id].price;
     var iter_ask_id = minAsk.id;
     var id_iter_bid = maxBid.id;
     period++;
 
     while (!isMatched) {
-        while (iter_ask_id != 0 && (idToOrder[iter_ask_id].price === matching_price)) {
-
+        // cumulates ask volume for fixed price level
+        while (iter_ask_id !== 0 && (idToOrder[iter_ask_id].price === matching_price)) {
             var volume = idToOrder[iter_ask_id].volume;
             var owner = idToOrder[iter_ask_id].owner;
             cumAskVol += volume;
@@ -253,12 +245,10 @@ function match() {
                 outOfAskOrders = true;
                 break;
             }
-
-
         }
 
         // TODO: iterates each time through the mapping. Find better solution!
-        while (idToOrder[id_iter_bid].price >= matching_price) {
+        while (idToOrder[id_iter_bid].price >== matching_price) {
             var volume = idToOrder[id_iter_bid].volume;
             var owner = idToOrder[id_iter_bid].owner;
             cumBidVol += volume;
@@ -267,16 +257,13 @@ function match() {
                 volume: volume
             });
 
-            var nex = idToOrder[id_iter_bid].nex;
-            id_iter_bid = nex;
+            id_iter_bid = idToOrder[id_iter_bid].nex;
             if (!id_iter_bid) {
                 break;
             }
         }
 
-        if (cumAskVol >= cumBidVol) {
-            isMatched = true;
-        } else if (outOfAskOrders) {
+        if (cumAskVol >== cumBidVol || outOfAskOrders) {
             isMatched = true;
         } else {
             matching_price = idToOrder[iter_ask_id].price;
@@ -287,7 +274,6 @@ function match() {
     }
 
     // calculates how much energy each producer can release into the grid within the next interval
-
     if (cumBidVol < cumAskVol) {
         share = cumBidVol / cumAskVol;
         for (owner in matchedAskOrderMapping[period]) {
@@ -301,12 +287,9 @@ function match() {
         }
     }
 
-
-
     matchingPriceMapping[period] = matching_price;
 
     resetOrders();
-
 }
 
 function resetOrders() {
