@@ -39,8 +39,8 @@ contract Etherex {
     // maps order id to order objects
     Order[] orders;
 
-    uint256 minAsk = 0;
-    uint256 maxBid = 0;
+    uint256 public minAsk = 0;
+    uint256 public maxBid = 0;
 
     // flex bids
     Order[] flexBids;
@@ -357,7 +357,7 @@ contract Etherex {
                     bidIterId = nextOrder;
                 } else {
                     isFound = true;
-                    break;
+                    throw;
                 }
 
             }
@@ -395,8 +395,7 @@ contract Etherex {
                 if (next_order != 0){
                     ask_id_iter = next_order;
                 } else {
-                    isFound = true;     // Mindestmenge an Energie konnten nicht erreicht werden, da selbst beim höchsten Preis nicht ausreichen Energie vorhanden war
-                    break;
+                    throw;     // Mindestmenge an Energie konnten nicht erreicht werden, da selbst beim höchsten Preis nicht ausreichen Energie vorhanden war
                 }
             }
 
@@ -412,10 +411,7 @@ contract Etherex {
 
         return reserve_price;
 
-        //debug_determineReserveAskPrice("determineReserveAskPrice Method ended.", reserve_price, cumAskReserveVol);
     }
-
-    //event debug_determineReserveAskPrice(string log, int256 reserve_price, uint256 cumAskReserveVol);
 
     ///////////////////
     // Helper functions, mainly for testing purposes
