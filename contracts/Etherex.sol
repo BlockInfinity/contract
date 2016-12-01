@@ -91,6 +91,7 @@ contract Etherex {
 
     function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities() {
         identities[_sm] = 2;
+        identities[_user] = 3;
         smartMeterToUser[_sm] = _user; 
     }
 
@@ -104,7 +105,7 @@ contract Etherex {
         _;
     }
     modifier onlyUsers() {
-        if (smartMeterToUser[msg.sender] == 0) throw;
+        if (identities[msg.sender] == 0) throw;
         _;
     }
     modifier onlyInState(uint8 _state) {
@@ -152,9 +153,8 @@ contract Etherex {
         return false;
     }
         
-    // todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
     // todo(mg): prüfen ob ausreichend ether mitgeschickt wurde
-    function submitBid(int256 _price, uint256 _volume) /*onlyUsers()*/ {
+    function submitBid(int256 _price, uint256 _volume) onlyUsers(){
         save_order("BID", _price, _volume);
     }
 
@@ -165,11 +165,11 @@ contract Etherex {
     
     // producer can submit ask if he is able to supply two times the average needed volume of
     // electricity
-    function submitReserveAsk(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyReserveUsers(_volume) {
+    function submitReserveAsk(int256 _price, uint256 _volume) /*nlyInState(1) */ onlyUsers() onlyReserveUsers(_volume) {
         save_order("ASK", _price, _volume);
     }
 
-    function submitReserveBid(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyReserveUsers(_volume) {
+    function submitReserveBid(int256 _price, uint256 _volume) /*onlyInState(1) */ onlyUsers() onlyReserveUsers(_volume) {
         save_order("BID", _price, _volume);
     }
 
@@ -339,9 +339,9 @@ contract Etherex {
 
     function determineReserveBidPrice() returns (int256) {
         uint256 cumBidReserveVol = 0;
-        int256 reserveBidPrice = maxBid.price;
+        int256 reserveBidPrice = orders[maxBid].price;
         bool isFound = false;
-        uint256 bidIterId = maxBid.id;
+        uint256 bidIterId = maxBid;
 
         while(!isFound) {
             while(orders[bidIterId].price == reserveBidPrice) {
@@ -371,13 +371,13 @@ contract Etherex {
 
         reserveBidPriceForPeriod[period] = reserveBidPrice;
 
-
+        return reserveBidPrice;
 
     }
 
 
     //TODO Magnus time controlled
-    function determineReserveAskPrice() returns (uint256) {
+    function determineReserveAskPrice() returns (int256) {
         uint256 cumAskReserveVol = 0;
         int256 reserve_price = orders[minAsk].price;
         bool isFound = false;
@@ -410,10 +410,12 @@ contract Etherex {
 
         reservePriceForPeriod[period] = reserve_price;
 
-        debug_determineReserveAskPrice("determineReserveAskPrice Method ended.", reserve_price, cumAskReserveVol);
+        return reserve_price;
+
+        //debug_determineReserveAskPrice("determineReserveAskPrice Method ended.", reserve_price, cumAskReserveVol);
     }
 
-    event debug_determineReserveAskPrice(string log, int256 reserve_price, uint256 cumAskReserveVol);
+    //event debug_determineReserveAskPrice(string log, int256 reserve_price, uint256 cumAskReserveVol);
 
     ///////////////////
     // Helper functions, mainly for testing purposes
