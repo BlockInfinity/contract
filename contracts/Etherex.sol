@@ -353,7 +353,7 @@ contract Etherex {
                 cumBidReserveVol += volume;
                 matchedReserveOrders[period][owner] = volume;
 
-                uint256 nextOrder = orders[bidIterId].nex;
+                uint256 nextOrder = orders[bidIterId].next;
 
                 if(nextOrder != 0) {
                     bidIterId = nextOrder;
