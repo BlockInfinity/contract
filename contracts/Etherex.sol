@@ -34,8 +34,8 @@ contract Etherex {
     // maps order id to order objects
     Order[] orders;
 
-    uint256 minAsk = 0;
-    uint256 maxBid = 0;
+    uint256 public minAsk = 0;
+    uint256 public maxBid = 0;
 
     // flex bids
     Order[] flexBids;
@@ -68,7 +68,8 @@ contract Etherex {
     // maps volume to period and owner
     mapping (uint256 => mapping(address => uint256)) matchedReserveOrders;
     // maps reserveprice to period
-    mapping (uint256 => int256) reservePriceForPeriod;
+    mapping (uint256 => int256) reserveAskPriceForPeriod;
+    mapping (uint256 => int256) reserveBidPriceForPeriod;
 
     // constructor
     function Etherex(address _certificateAuthority) {
@@ -98,6 +99,7 @@ contract Etherex {
 
     function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities() {
         identities[_sm] = 2;
+        identities[_user] = 3;
         smartMeterToUser[_sm] = _user; 
     }
 
@@ -111,7 +113,7 @@ contract Etherex {
         _;
     }
     modifier onlyUsers() {
-        if (smartMeterToUser[msg.sender] == 0) throw;
+        if (identities[msg.sender] == 0) throw;
         _;
     }
     modifier onlyInState(uint8 _state) {
@@ -159,9 +161,8 @@ contract Etherex {
         return false;
     }
         
-    // todo(ms): commented onlyUsers since there is a problem i wasnt able to solve, will further investigate
     // todo(mg): prüfen ob ausreichend ether mitgeschickt wurde
-    function submitBid(int256 _price, uint256 _volume) /*onlyUsers()*/ {
+    function submitBid(int256 _price, uint256 _volume) onlyUsers(){
         saveOrder("BID", _price, _volume);
     }
 
@@ -174,6 +175,10 @@ contract Etherex {
     // electricity
     function submitReserveAsk(int256 _price, uint256 _volume) onlyInState(1) onlyUsers() onlyReserveUsers(_volume) {
         saveOrder("ASK", _price, _volume);
+    }
+
+    function submitReserveBid(int256 _price, uint256 _volume) /*onlyInState(1) */ onlyUsers() onlyReserveUsers(_volume) {
+        saveOrder("BID", _price, _volume);
     }
 
     // put flex bid in separate flex bid pool
@@ -351,44 +356,76 @@ contract Etherex {
 
     }
 
-    // TODO Magnus time controlled
-    function determineReserveAskPrice() returns (uint256) {
+    function determineReserveBidPrice() returns (int256) {
+        uint256 cumBidReserveVol = 0;
+        int256 reserveBidPrice = orders[maxBid].price;
+        bool isFound = false;
+        uint256 bidIterId = maxBid;
+
+        while (!isFound) {
+            while (orders[bidIterId].price == reserveBidPrice) {
+                uint256 volume = orders[bidIterId].volume;
+                address owner = orders[bidIterId].owner;
+
+                cumBidReserveVol += volume;
+                matchedReserveOrders[period][owner] = volume;
+
+                uint256 nextOrder = orders[bidIterId].next;
+
+                if (nextOrder != 0) {
+                    bidIterId = nextOrder;
+                } else {
+                    isFound = true;
+                    break;
+                }
+            }
+
+            if (cumBidReserveVol >= MIN_RESERVE_VOLUME) {
+                isFound = true;
+            } else {
+                reserveBidPrice = orders[bidIterId].price;
+            }
+        }
+
+        reserveBidPriceForPeriod[period] = reserveBidPrice;
+        return reserveBidPrice;
+    }
+
+    // todo(mg) to be time controlled
+    function determineReserveAskPrice() returns (int256) {
         uint256 cumAskReserveVol = 0;
-        int256 reservePrice = orders[minAsk].price;
+        int256 reserve_price = orders[minAsk].price;
         bool isFound = false;
         uint256 ask_id_iter = minAsk;
 
-        while(!isFound) {
-            while(orders[ask_id_iter].price == reservePrice){
+        while (!isFound) {
+            while (orders[ask_id_iter].price == reserve_price) {
                 uint256 volume = orders[ask_id_iter].volume;     // redundant, aber übersichtlicher
                 address owner = orders[ask_id_iter].owner;
 
                 cumAskReserveVol += volume;
                 matchedReserveOrders[period][owner] = volume;
 
-                uint256 nextOrder = orders[ask_id_iter].next;
-                if (nextOrder != 0){
-                    ask_id_iter = nextOrder;
+                uint256 next_order = orders[ask_id_iter].next;
+                if (next_order != 0) {
+                    ask_id_iter = next_order;
                 } else {
-                    isFound = true;     // Mindestmenge an Energie konnten nicht erreicht werden, da selbst beim höchsten Preis nicht ausreichen Energie vorhanden war
-                    break;
+                    isFound = true;
+                    break;     // Mindestmenge an Energie konnten nicht erreicht werden, da selbst beim höchsten Preis nicht ausreichen Energie vorhanden war
                 }
             }
 
             if (cumAskReserveVol >= MIN_RESERVE_VOLUME) {
               isFound = true;
             } else {
-              reservePrice = orders[ask_id_iter].price;
+              reserve_price = orders[ask_id_iter].price;
             }        
         }
-        // orders löschen? 
 
-        reservePriceForPeriod[period] = reservePrice;
-
-        debugDetermineReserveAskPrice("determineReserveAskPrice Method ended.", reservePrice, cumAskReserveVol);
+        // todo: orders löschen? 
+        reserveAskPriceForPeriod[period] = reserve_price;
+        return reserve_price;
     }
-
-    event debugDetermineReserveAskPrice(string log, int256 reservePrice, uint256 cumAskReserveVol);
 
     ///////////////////
     // Helper functions, mainly for testing purposes
