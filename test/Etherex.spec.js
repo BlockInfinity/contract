@@ -247,7 +247,7 @@ contract('Etherex', function(accounts) {
 
 
   // Tests for determining reserve bid and reserve ask prices
-  describe.only('determine reserve  prices', function() {
+  describe('determine reserve  prices', function() {
     
     var priceMultiplier = 100;
     var volumeMultiplier = 100;
@@ -259,6 +259,19 @@ contract('Etherex', function(accounts) {
           assert(certificateAuthorities[i]);
           yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
         }
+
+        for (var i = 1; i < producers.length; i++) {
+          assert(producers[i]);
+          assert(consumers[i]);
+          yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
+        }
+
+        for (var i = 1; i < 10; i++) {
+          yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
+          yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
+        }
+
+        etherex.matching();
 
         
         for (var i = 1; i < 5; i++) {
@@ -286,7 +299,7 @@ contract('Etherex', function(accounts) {
           
           var price = result.toNumber();
           expect(price).to.not.equal(0);
-          assert(price <= priceMultiplier*9, "Price is larger than max possible price: " + price);
+          assert(price <= priceMultiplier*5, "Price is larger than max possible price: " + price);
           //TODO check if price is right
           done();
 

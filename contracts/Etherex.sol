@@ -357,7 +357,7 @@ contract Etherex {
                     bidIterId = nextOrder;
                 } else {
                     isFound = true;
-                    throw;
+                    break;
                 }
 
             }
@@ -395,7 +395,8 @@ contract Etherex {
                 if (next_order != 0){
                     ask_id_iter = next_order;
                 } else {
-                    throw;     // Mindestmenge an Energie konnten nicht erreicht werden, da selbst beim höchsten Preis nicht ausreichen Energie vorhanden war
+                    isFound=true;
+                    break;     // Mindestmenge an Energie konnten nicht erreicht werden, da selbst beim höchsten Preis nicht ausreichen Energie vorhanden war
                 }
             }
 
