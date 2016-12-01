@@ -72,6 +72,8 @@ contract('Etherex', function(accounts) {
     });
   });
 
+
+
   describe('submit orders by consumers', function() {
 
     var priceMultiplier = 100;
@@ -241,5 +243,76 @@ contract('Etherex', function(accounts) {
       })).not.to.be.rejected;
     });
   });
+
+
+
+  // Tests for determining reserve bid and reserve ask prices
+  describe.only('determine reserve  prices', function() {
+    
+    var priceMultiplier = 100;
+    var volumeMultiplier = 100;
+    var reserveVolumeMultiplier = 1000000;
+    
+    beforeEach(function() {
+      co(function*() {
+        for (var i = 1; i < certificateAuthorities.length; i++) {
+          assert(certificateAuthorities[i]);
+          yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
+        }
+
+        
+        for (var i = 1; i < 5; i++) {
+          yield etherex.submitReserveBid(i * priceMultiplier, i * reserveVolumeMultiplier, {from: consumers[i]});
+          yield etherex.submitReserveAsk(i * priceMultiplier, i * reserveVolumeMultiplier, {from: producers[i]});
+        }
+
+      });
+
+
+    });
+
+
+    afterEach(function() {
+      return co(function*() {
+        yield etherex.reset();
+      });
+    });
+
+
+    it('determine reserve ask price', function(done) {
+        
+        etherex.determineReserveAskPrice.call().then(function(result) {
+
+          
+          var price = result.toNumber();
+          expect(price).to.not.equal(0);
+          assert(price <= priceMultiplier*9, "Price is larger than max possible price: " + price);
+          //TODO check if price is right
+          done();
+
+        });
+
+    });
+
+
+
+    it('determine reserve bid price', function(done) {
+          
+          etherex.determineReserveBidPrice.call().then(function(result) {
+
+          var price = result.toNumber();
+          expect(price).to.not.equal(0);
+          assert(price <= priceMultiplier*10, "Price is larger than max possible price: " + price);
+
+          //TODO check if price is right
+
+          done();
+
+        });
+
+    });
+
+
+  }); 
 
 });
