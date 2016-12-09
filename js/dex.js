@@ -479,9 +479,10 @@ function settle(_user, _type, _volume, _period) {
     if (!matchedAskOrderMapping[_period] || !matchedBidOrderMapping[_period]) {
         throw new Error('period that should be settled does not exist');
     }
-    if (_period === period && state === 0) {
-        throw new Error('not allowed to settle in state 0 of same period');
-    }
+    // is not allowe in state 1 either
+    // if (_period === period && state === 0) {
+    //     throw new Error('not allowed to settle in state 0 of same period');
+    // }
     if (_period > period) {
         throw new Error('not allowed to settle in future period');
     }
@@ -718,7 +719,7 @@ function endSettle(_period) {
     if (!(sum == 0 || (sum < 0.01 && sum > -0.01))) {
         debugger;
     }
- 
+
 
     owner = 1;
 }
