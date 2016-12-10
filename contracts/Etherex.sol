@@ -34,7 +34,7 @@ contract Etherex {
     mapping(address => address) smartMeterToUser;
 
     // 1: CA, 2: smart meter
-    mapping(address => uint8) identities;
+    mapping(address => uint256) identities;
 
     // maps order id to order objects
     Order[] orders;
@@ -63,14 +63,48 @@ contract Etherex {
 
     uint256 startBlock;
 
+    address[] users;
+
+    uint256 public maxUserId;
+
+    // Variables for settle function
+    uint256 public currentPeriod;
+
+    uint256 MIN_RESERVE_VOLUME = 1000;  // todo: statt konstantem wert, durchschnittliches maximum eines Haushaltes iterativ berechnen und das produkt mit #haushalte als MIN_RESERVE_VOLUME setzen
+
+    mapping (uint256 => mapping (address =>  uint256)) public matchedAskReserveOrders;   // maps volume to currentPeriod and owner
+    mapping (uint256 => mapping (address =>  uint256)) public matchedBidReserveOrders;   // maps volume to currentPeriod and owner
+    mapping (uint256 => int256) public askReservePrices;                        // maps reserveprice to currentPeriod
+    mapping (uint256 => int256) public bidReservePrices;
+ 
+    struct SettleUserData {
+        address user;
+        uint256 smVolume;
+    }
+
+
+    struct settleData{
+        bool isFirstSettle;
+        mapping(address => bool) alreadySettled;
+        uint256 settleCounter;
+        uint256 sumProduced;
+        uint256 sumConsumed;
+        uint256 excess;
+        uint256 lack;
+        SettleUserData[] askSmData;
+        SettleUserData[] bidSmData;
+    }
+
     // constructor
     function Etherex(address _certificateAuthority) {
         identities[_certificateAuthority] = 1;
         currState = 0;
+        maxUserId = 3;
+        currentPeriod = 0;
         reset();
     }
 
-    // reset
+    // // reset
     function reset() {
         startBlock = block.number;
         isMatchingDone = false;
@@ -84,14 +118,15 @@ contract Etherex {
         maxBid = 0;
     }
 
-    // register Functions
-    function registerCertificateAuthority(address _ca) {
-        identities[_ca] = 1;
-    }
+    // // register Functions
+    // function registerCertificateAuthority(address _ca) {
+    //     identities[_ca] = 1;
+    // }
 
-    function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities() {
+    // for debug purposes excluded onlyCertificateAuthorities()
+    function registerSmartMeter(address _sm, address _user)  {
         identities[_sm] = 2;
-        identities[_user] = 3;
+        identities[_user] = maxUserId++;
         smartMeterToUser[_sm] = _user; 
     }
 
@@ -241,7 +276,7 @@ contract Etherex {
         }
     }
 
-    // match bid and ask orders
+    // // match bid and ask orders
     function matching() {
         if (orders.length == 1) {
             reset();
@@ -324,12 +359,7 @@ contract Etherex {
         matchingPrices[currentPeriod] = matchingPrice;
     }
 
-    uint256 MIN_RESERVE_VOLUME = 1000;  // todo: statt konstantem wert, durchschnittliches maximum eines Haushaltes iterativ berechnen und das produkt mit #haushalte als MIN_RESERVE_VOLUME setzen
 
-    mapping (uint256 => mapping (address =>  uint256)) public matchedAskReserveOrders;   // maps volume to currentPeriod and owner
-    mapping (uint256 => mapping (address =>  uint256)) public matchedBidReserveOrders;   // maps volume to currentPeriod and owner
-    mapping (uint256 => int256) public askReservePrices;                        // maps reserveprice to currentPeriod
-    mapping (uint256 => int256) public bidReservePrices;
 
        function determineReserveBidPrice() returns (int256) {
         uint256 cumBidReserveVol = 0;
@@ -370,7 +400,7 @@ contract Etherex {
     }
 
 
-    //TODO Magnus time controlled
+    // //TODO Magnus time controlled
     function determineReserveAskPrice() returns (int256) {
         uint256 cumAskReserveVol = 0;
         int256 reserve_price = orders[minAsk].price;
@@ -408,52 +438,105 @@ contract Etherex {
 
     }
 
-    // Todo
-    // anhand der blocknumber bestimmen in welcher currentPeriode man gerade ist 
-    function updatecurrentPeriod(){
-
-    }
-
-    function test() {
-        settleMapping[1].askSmData.push(SettleUserData(1,1,1));
-        debugEvent(settleMapping[1].askSmData[0].user,settleMapping[1].askSmData[0].smVolume,settleMapping[1].askSmData[0].orderedVolume);
-    }
- 
-    event debugEvent(address user,  uint256 volume, uint256 orderedVolume);
-    
-    // Variables for settle function
-    uint256 currentPeriod = 0;
  
 
-    struct SettleUserData {
-        address user;
-        uint256 smVolume;
-        uint256 orderedVolume;
-    }
+ 
+    // ########################## testing area for settle function ####################################################
+    //  debug functions for Settlement
+
+    // function test_settle_AskReserve(){
+    //     address _user = address(123);
+    //     identities[_user] = 1;
+    //     currentPeriod = 1;
+    //     matchedAskReserveOrders[currentPeriod][_user] = 100;
+    //     settle(2,200,currentPeriod++);
+    // }          
+
+    // function test_settle_AskNormal(){
+    //     address _user = address(123);
+    //     identities[_user] = 1;
+    //     currentPeriod = 1;
+    //     matchingPrices[currentPeriod] = 10;
+    //     bidReservePrices[currentPeriod] = 5;
+    //     askReservePrices[currentPeriod] = 20;
+    //     matchedAskOrders[currentPeriod][_user] = 100;
+    //     settle(2,100,currentPeriod++);          
+    // }  
+
+    // function test_settle_NoAskOrderEmitted(){
+    //     address _user = address(123);
+    //     identities[_user] = 1;
+    //     currentPeriod = 1;
+    //     matchingPrices[currentPeriod] = 10;
+    //     bidReservePrices[currentPeriod] = 5;
+    //     askReservePrices[currentPeriod] = 20;
+    //     settle(2,100,currentPeriod++);          
+    // }  
+
+    function test_settle_BidReserve(){
+        registerSmartMeter(address(123),address(123));
+        address _user = address(123);
+        currentPeriod = 1;
+        matchedBidReserveOrders[currentPeriod][_user] = 100;
+        settle(address(123),1,200,currentPeriod++);      
+    }       
+
+    function test_settle_BidNormal(){
+        registerSmartMeter(address(123),address(123));
+        address _user = address(123);
+        currentPeriod = 1;
+        matchingPrices[currentPeriod] = 10;
+        bidReservePrices[currentPeriod] = 5;
+        askReservePrices[currentPeriod] = 20;
+        matchedBidOrders[currentPeriod][_user] = 100;
+        settle(address(123),1,200,currentPeriod++);          
+    }  
+
+    function test_settle_NoBidOrderEmitted(){
+        registerSmartMeter(address(123),address(123));
+        address _user = address(123);
+        identities[_user] = 1;
+        currentPeriod = 1;
+        matchingPrices[currentPeriod] = 10;
+        bidReservePrices[currentPeriod] = 5;
+        askReservePrices[currentPeriod] = 20;
+        settle(address(123),1,100,currentPeriod++);          
+    }  
 
 
-    struct settleData{
-        bool isFirstSettle;
-        mapping(address => bool) alreadySettled;
-        uint256 settleCounter;
-        uint256 sumProduced;
-        uint256 sumConsumed;
-        uint256 excess;
-        uint256 lack;
-        SettleUserData[] askSmData;
-        SettleUserData[] bidSmData;
-    }
 
+    event InAskReserve(uint256 , uint256 );
+    event InAskNormal(int256, uint256, uint256,int256);
+    event InNoAskOrder(int256, uint256, uint256,int256);
+
+    event InBidReserve(uint256, uint256);
+    event InBidNormal(int256, uint256, uint256,int256);
+    event InNoBidOrder(int256, uint256, uint256,int256);
+
+
+    event log(string msg);
+    event check(bool);
+
+ 
+    // ########################## testing area ####################################################
    
     mapping(uint256 => settleData) public settleMapping;
-    mapping(address => int256) colleteral;
+    mapping(uint256 => int256) public colleteral;
 
     // todo: needs to be set at some point
     uint256 numberOfUsers = 0;
+
+    // for debug purposes not defined in function 
+    uint256 public ordered;
+    uint256 public offered;
+    uint256 public diff;
+    uint256 public userId;
+
     
     // Settlement function called by smart meter
     // _type=1 for Consumer and _type=2 for Producer
-    function settle(address _user,int8 _type,uint256 _volume,uint256 _period) onlySmartMeters() {
+    // for debug purposes not included onlySmartMeters() 
+    function settle(address _user,int8 _type,uint256 _volume,uint256 _period)  {
 
     if (_user == 0) {
         throw;
@@ -472,23 +555,32 @@ contract Etherex {
     if (!(currentPeriod > _period)) {
         throw;    
     }
+
+    // log("perio passt");
     // smart meter has already sent data for this particular user
     if (settleMapping[_period].alreadySettled[_user]){
         throw;
     }
 
-    uint256 ordered = 0;
-    uint256 offered = 0;
-    uint256 diff = 0;
+    // log("already settled passt");
+    // for debug purposes not defined here
+    ordered = 0;
+    offered = 0;
+    diff = 0;
+    userId = identities[_user];
 
-    //  producer
+
+    // producer 
     if (_type == 2) {
         // case 1: reserve ask guy
         if (matchedAskReserveOrders[_period][_user] != 0){          // TODO: matchedReserveOrders needs to be splitted in matchedAskReserveOrders and matchedBidReserveOrders
             // Smart Meter Daten werden vorerst gespeichert für die spätere Abrechnung in der endSettle Funktion
-            offered = matchedAskReserveOrders[_period][_user];
-            settleMapping[_period].askSmData.push(SettleUserData(_user,_volume,offered));
+            settleMapping[_period].askSmData.push(SettleUserData(_user,_volume));
             settleMapping[_period].sumProduced += _volume; 
+
+            // for debug pruposes 
+            log("in ask reserve");
+            InAskReserve(settleMapping[_period].askSmData[0].smVolume, settleMapping[_period].sumProduced);
 
         // case 2: normal ask order guy
         } else if (matchedAskOrders[_period][_user] != 0){
@@ -496,41 +588,49 @@ contract Etherex {
              // _user hat zu wenig Strom eingespeist
             if (_volume < offered) {
                   // für den eingespeisten Strom bekommt er den matching preis bezahlt
-                colleteral[_user] += int256(_volume) * matchingPrices[_period];
+                colleteral[userId] += int256(_volume) * matchingPrices[_period];
                 // die Differenzt muss er nachkaufen für den teuren reserveAskPrice
                 diff = offered - _volume;
-                colleteral[_user] -= (int256(diff) * askReservePrices[_period]);
+                colleteral[userId] -= (int256(diff) * askReservePrices[_period]);
                 // rechnerisch ist nun -diff strom zu wenig im netz
-                settleMapping[_period].lack += diff;   
+                settleMapping[_period].lack += diff; 
+                log("has produced too less");
             } else if (_volume > offered) {
                 // Für das Ordervolumen bekommt er den matchingpreis bezahlt
-                colleteral[_user] += int256(offered) * matchingPrices[_period];
+                colleteral[userId] += int256(offered) * matchingPrices[_period];
                 // Für die Differenz bekommt er den niedrigen reserveBidPrice bezahlt
                 diff = _volume - offered;
-                colleteral[_user] += int256(diff) * bidReservePrices[_period];
+                colleteral[userId] += int256(diff) * bidReservePrices[_period];
                 // rechnerisch ist diff strom zu viel im Netz
                 settleMapping[_period].excess += diff;
+                log("has produced too much");
 
                 // _user hat genau so viel strom eingepeist wie abgemacht
             } else {
-                colleteral[_user] += int256(_volume) * matchingPrices[_period];
+                colleteral[userId] += int256(_volume) * matchingPrices[_period];
+                 log("has produced exactly the offered amount");
             }
             // wird auf undefined gesetzt damit selbiger _user nicht nochmals settlen kann
             // matchedAskOrderMapping[_period][_user] = undefined;
 
             // Volumen was von den normalen _usern erzeugt wurde
             settleMapping[_period].sumProduced += _volume;
+
+            // for debug purposes              
+            InAskNormal(colleteral[userId],_volume,offered,matchingPrices[_period]);
    
         // case 3: no order emitted
         } else {
             // track collaterial
-            colleteral[_user] += int256(_volume) * bidReservePrices[_period];
+            colleteral[userId] += int256(_volume) * bidReservePrices[_period];
             // track excess
             settleMapping[_period].excess += _volume;
             // volumen was von den normalen _usern erzeugt wurde
             settleMapping[_period].sumProduced += _volume;
             // wird auf undefined gesetzt damit selbiger _user nicht nochmals settlen kann
             //matchedAskOrderMapping[_period][_user] = undefined;
+            log("No ask order emitted");
+            InNoAskOrder(colleteral[userId],_volume,0,bidReservePrices[_period]);
         }
     }
 
@@ -538,14 +638,16 @@ contract Etherex {
     if (_type == 1) {
         // case 1: reserve bid guy
         if (matchedBidReserveOrders[_period][_user] != 0) {
+            log("in bid reserve");
             // smart meter daten werden vorerst gespeichert für die spätere Abrechnung in der endSettle Funktion
             ordered = matchedBidReserveOrders[_period][_user];
             // process later
-            settleMapping[_period].bidSmData.push(SettleUserData(_user,_volume,ordered));
+            settleMapping[_period].bidSmData.push(SettleUserData(_user,_volume));
             // Volumen was von den reserve Leute vom Netz genommen wurde, weil zu viel Strom vorhanden war
             settleMapping[_period].sumConsumed += _volume; 
             // wird auf undefined gesetzt damit selbiger user nicht nochmals settlen kann
-            //matchedBidReserveOrderMapping[_period][user] = undefined;
+            // matchedBidReserveOrderMapping[_period][user] = undefined;
+            InBidReserve(settleMapping[_period].bidSmData[0].smVolume, settleMapping[_period].sumConsumed);
 
         // case 2: normal bid order guy 
         } else if (matchedBidOrders[_period][_user] != 0) {
@@ -553,74 +655,116 @@ contract Etherex {
             // user hat zu viel Strom verbraucht
             if (_volume > ordered) {
                 // das Ordervolumen kann noch zum matching price bezahlt werden
-                colleteral[_user] -= int256(ordered) * matchingPrices[_period];
+                colleteral[userId] -= int256(ordered) * matchingPrices[_period];
                 // die Differenz muss für den höheren reserveAskPrice bezahlt werden
                 diff = _volume - ordered;
-                colleteral[_user] -= (int256(diff) * askReservePrices[_period]);
+                colleteral[userId] -= (int256(diff) * askReservePrices[_period]);
                 // rechnerisch ist nun -diff Strom zu wenig im Netz
-                settleMapping[_period].lack += diff;   
+                settleMapping[_period].lack += diff; 
+                log("has consumed too much");  
 
                 // user hat zu wenig Strom verbraucht
             } else if (_volume < ordered) {
                 // das Ordervolumen muss bezahlt werden für den matching price
-                colleteral[_user] -= (int256(ordered) * matchingPrices[_period]);
+                colleteral[userId] -= (int256(ordered) * matchingPrices[_period]);
                 // die differenz kann für den schlechten reserveBidPrice verkauft werden
                 diff = ordered - _volume;
-                colleteral[_user] += (int256(diff) * bidReservePrices[_period]);
+                colleteral[userId] += (int256(diff) * bidReservePrices[_period]);
                 // recherisch ist nun +diff zu viel Strom im Netz
                 settleMapping[_period].excess += diff;
+                log("has consumed too less");
 
                 // user hat genau so viel verbraucht wie zuvor vereinbart
             } else {
-                colleteral[_user] -= (int256(_volume) * matchingPrices[_period]);
+                colleteral[userId] -= (int256(_volume) * matchingPrices[_period]);
+                log("has consumed just right");
             }
             // was die normalen user verbaucht haben
             settleMapping[_period].sumConsumed += _volume;
             // wird auf undefined gesetzt damit selbiger user nicht nochmals settlen kann
             //matchedBidOrderMapping[_period][user] = undefined;
+            InBidNormal(colleteral[userId],_volume,ordered,matchingPrices[_period]);
 
             // FALL 3: No Order emitted
         } else {
             // track collaterial
-            colleteral[_user] -= (int256(_volume) * askReservePrices[_period]);
+            colleteral[userId] -= (int256(_volume) * askReservePrices[_period]);
             // track lack
             settleMapping[_period].lack += _volume;
             // volumen was die normalen usern verbraucht haben
             settleMapping[_period].sumConsumed += _volume;
             // wird auf undefined gesetzt damit selbiger user nicht nochmals settlen kann
             //matchedBidOrderMapping[_period][user] = undefined;
+            log("no bid order emitted");
+            InNoBidOrder(colleteral[userId],_volume,0,matchingPrices[_period]);
         }
     }
 
     // increment settle counter
     settleMapping[_period].settleCounter += 1;
+
     // set user as settled for period
     settleMapping[_period].alreadySettled[_user] = true;
 
     // todo: endSettle Funktion muss beim Eingang des letzten smart meter datensatzes automatisch ausgeführt werden
-    if ( settleMapping[_period].settleCounter == numberOfUsers) {
+    if ( settleMapping[_period].settleCounter == (maxUserId - 3)) {
+        log("before endSettle");
         endSettle(_period);
     }
 
 }
+
+
+    // ########################## testing area for endSettle function ####################################################
+    //  debug functions for Settlement
+     
+
+    function test_endSettle_lack() {
+        address consumer = address(123);
+        address reserveGuy = address(1234);
+        registerSmartMeter(consumer,consumer);
+        registerSmartMeter(address(1234),address(1234));
+        address _user = address(123);
+        currentPeriod = 1;
+        matchingPrices[currentPeriod] = 10;
+        bidReservePrices[currentPeriod] = 5;
+        askReservePrices[currentPeriod] = 20;
+        matchedBidOrders[currentPeriod][_user] = 100;
+        matchedAskReserveOrders[currentPeriod][reserveGuy]=200;
+        currentPeriod++;
+        settle(reserveGuy,2,100,1); 
+        settle(consumer,1,200,1);         
+    }  
+
+
+
+    event ShowDiff(int256);
+
+    // ########################## testing area ####################################################
+
 
 function endSettle(uint256 _period) {
 
     int256 diff = int256(settleMapping[_period].excess) - int256(settleMapping[_period].lack);
     int256 smVolume = 0;
     address user;
+    uint256 userId;
+
+    ShowDiff(diff);
     
     if (diff >= 0) {
         for (uint256 i = 0;i<settleMapping[_period].bidSmData.length;i++) {   
+            log("is in for loop with positive diff"); 
             smVolume = int256(settleMapping[_period].bidSmData[i].smVolume);
             if (smVolume == 0) continue;
             user = settleMapping[_period].bidSmData[i].user;
+            userId = identities[user];
             if (smVolume <= diff) {
-                colleteral[user] -= smVolume * bidReservePrices[_period];
+                colleteral[userId] -= smVolume * bidReservePrices[_period];
                 diff -= smVolume;
             } else {
-                colleteral[user] -= diff * bidReservePrices[_period];
-                colleteral[user] -= (smVolume - diff) * askReservePrices[_period];
+                colleteral[userId] -= diff * bidReservePrices[_period];
+                colleteral[userId] -= (smVolume - diff) * askReservePrices[_period];
                 diff = 0;
             }
         }
@@ -630,50 +774,48 @@ function endSettle(uint256 _period) {
 
     if (diff <= 0) {
         diff = -1 * diff;
-        for (uint256 j = 0;i<settleMapping[_period].askSmData.length;i++) { 
+        for (uint256 j = 0;j<settleMapping[_period].askSmData.length;j++) {
+                log("is in for loop with negative diff"); 
                 smVolume = int256(settleMapping[_period].askSmData[i].smVolume);
                 if (smVolume == 0) continue;
                 user = settleMapping[_period].askSmData[i].user;
+                userId = identities[user];
                 if (smVolume <= diff) {
-                    colleteral[user] += smVolume * askReservePrices[_period];
+                    colleteral[userId] += smVolume * askReservePrices[_period];
                     diff -= smVolume;
                 } else {
-                    colleteral[user] += diff * askReservePrices[_period];
-                    colleteral[user] += (smVolume - diff) * bidReservePrices[_period];
+                    colleteral[userId] += diff * askReservePrices[_period];
+                    colleteral[userId] += (smVolume - diff) * bidReservePrices[_period];
                     diff = 0;
                 }
-            
         }
     }
 
+    int256 moneyLeft = 0;
 
-    // TODO: 
-    // int256 shareOfEachUser = moneyLeft / _.keys(colleteral).length;
-    // for (user in colleteral) {
-    //     colleteral[user] += shareOfEachUser;
-    // }
-
-    // // for debugging purposes
-    // var sum = getSumOfColleteral();
-    // if (!(sum == 0 || (sum < 0.01 && sum > -0.01))) {
-    //     debugger;
-    // }
-
-
-    // owner = 1;
+    for (uint256 k=3;k<maxUserId;k++) {
+        moneyLeft += colleteral[k];
+    }
+    ShowDiff(moneyLeft);
+    int256 shareOfEachUser = moneyLeft / int256(maxUserId-3);
+    shareOfEachUser = shareOfEachUser * -1;
+    ShowDiff(shareOfEachUser);
+    for (uint256 l=3;l<maxUserId;l++) {
+        colleteral[l] += shareOfEachUser;
+    }
 }
 
-   
 
-    ///////////////////
-    // Helper functions, mainly for testing purposes
-    ///////////////////
+
+//     ///////////////////
+//     // Helper functions, mainly for testing purposes
+//     ///////////////////
  
     function getOrderIdLastOrder() returns(uint256) {
         if (idCounter == 1) {
             return 0;
-        }
-        return idCounter-1;
+        
+}        return idCounter-1;
     }
 
     /*

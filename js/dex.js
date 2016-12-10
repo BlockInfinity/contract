@@ -479,10 +479,12 @@ function settle(_user, _type, _volume, _period) {
     if (!matchedAskOrderMapping[_period] || !matchedBidOrderMapping[_period]) {
         throw new Error('period that should be settled does not exist');
     }
-    // is not allowe in state 1 either
+    
+    // is not allowe in state 1 either ?? 
     // if (_period === period && state === 0) {
     //     throw new Error('not allowed to settle in state 0 of same period');
     // }
+
     if (_period > period) {
         throw new Error('not allowed to settle in future period');
     }
