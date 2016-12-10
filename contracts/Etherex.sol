@@ -59,7 +59,7 @@ contract Etherex {
             
     uint256 idCounter;
 
-    uint8 currState;
+    uint8 public currState;
 
     uint256 startBlock;
 
@@ -79,12 +79,12 @@ contract Etherex {
     // constructor
     function Etherex(address _certificateAuthority) {
         identities[_certificateAuthority] = 1;
-        currState = 0;
         reset();
     }
 
     // reset
     function reset() {
+        currState = 0;
         startBlock = block.number;
         isMatchingDone = false;
         delete orders;
@@ -110,20 +110,21 @@ contract Etherex {
 
     // modifiers
     modifier onlyCertificateAuthorities() {
-        if (identities[msg.sender] != 1) throw;
+        if (identities[msg.sender] != 1 && !DEBUG) throw;
         _;
     }
     modifier onlySmartMeters() {
-        if (identities[msg.sender] != 2) throw;
+        if (identities[msg.sender] != 2 && !DEBUG) throw;
         _;
     }
     modifier onlyUsers() {
-        if (identities[msg.sender] == 0) throw;
+        if (identities[msg.sender] == 0 && !DEBUG) throw;
         _;
     }
     modifier onlyInState(uint8 _state) {
         updateState();
         if(_state != currState && !DEBUG) throw;
+        else if(_state != currState) InvalidState(currState, _state);
         _;
     }
     modifier onlyReserveUsers(uint256 _volume) {
@@ -140,39 +141,39 @@ contract Etherex {
     State 1: Reserve Orders (initial: matching)
     */
     function updateState() internal {
-        if (inStateZero() && currState != 0) {
-            currState = 0;    
-            determineReserveAskPrice();
-        } else if (inStateOne() && currState != 1) {
+        /*
+        Update state based on current block, no need for 1/3 period condition because
+        it is covered with the other 3
+        */
+        if(currState == 0 && ((block.number - startBlock) >= 25 && (block.number - startBlock) < 50)) {
+            //Matching should start
             currState = 1;
             matching();
-        // Zyklus beginnt von vorne
+            StateUpdate(startBlock,block.number, period, 0 , 1);
+        } else if (currState == 1 && block.number - startBlock >= 50){
+            //3/3 of the period
+            currState = 0;
+            StateUpdate(startBlock,block.number, period, 1 , 0);
+        } else if (currState == 0 && block.number - startBlock >= 75) {
+            //Period ends, update state and update period
+            currState = 0;
+            period++;
+            startBlock = block.number;      
+            StateUpdate(startBlock, block.number, period, 0 , 0);
         } else {
-            reset();
-        }             
-    }
- 
-    function inStateZero() internal returns (bool rv) {
-        if (block.number < (startBlock + 50)) {
-            return true;
+            StateUpdate(startBlock, block.number, period, currState , currState);
         }
-        return false;
-    }
 
-    function inStateOne() internal returns (bool rv) {
-        if (block.number >= (startBlock + 50) && block.number < (startBlock + 75)) {
-            return true;
-        }
-        return false;
+
     }
         
     // todo(mg): prüfen ob ausreichend ether mitgeschickt wurde
-    function submitBid(int256 _price, uint256 _volume) onlyUsers(){
+    function submitBid(int256 _price, uint256 _volume) onlyInState(0)  onlyUsers() {
         saveOrder("BID", _price, _volume);
     }
 
     // calculate min ask to satisfy flexible bids on the way?
-    function submitAsk(int256 _price, uint256 _volume) onlySmartMeters() {
+    function submitAsk(int256 _price, uint256 _volume) onlyInState(0) onlySmartMeters() {
         saveOrder("ASK", _price, _volume);
     } 
     
@@ -182,7 +183,7 @@ contract Etherex {
         saveOrder("ASK", _price, _volume);
     }
 
-    function submitReserveBid(int256 _price, uint256 _volume) /*onlyInState(1) */ onlyUsers() onlyReserveUsers(_volume) {
+    function submitReserveBid(int256 _price, uint256 _volume) onlyInState(1)  onlyUsers() onlyReserveUsers(_volume) {
         saveOrder("BID", _price, _volume);
     }
 
@@ -258,8 +259,6 @@ contract Etherex {
     // match bid and ask orders
     function matching() {
         // todo(ms): period increment should be controlled outside of matching()-function 
-        period++;
-
         // no orders submitted at all or at least one ask and bid missing
         // return if no orders or no match possible since minAsk greater than maxBid
         if (orders.length == 1) {
