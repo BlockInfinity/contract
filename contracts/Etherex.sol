@@ -9,6 +9,11 @@ The order of the functions has to be determined.
 */
 contract Etherex {
 
+
+
+    event StateUpdate(uint256 startBlock, uint256 blockNumber, uint256 period, uint256 previousState, uint256 newState);
+    event InvalidState(uint256 current, uint256 required);
+
     struct Order {
         uint256 id;
         uint256 next;
