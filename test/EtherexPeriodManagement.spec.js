@@ -38,9 +38,12 @@ contract('Etherex', function(accounts) {
     // set up etherex
     etherex = Etherex.deployed();
 
+    //The block where the test began
     beginningBlock = eth.blockNumber;
 
+    //Event listener for the StateUpdate event
     stateUpdates = etherex.StateUpdate();
+    //Event listener for the InvalidState event
     invalidStates = etherex.InvalidState();
 
 
@@ -48,13 +51,12 @@ contract('Etherex', function(accounts) {
 
   afterEach(function() {
       stateUpdates.stopWatching();
-
       return co(function*() {
         yield etherex.reset();
       });
    });
 
-  describe('Test period management', function() {
+  describe('test period management', function() {
     it('The contract should be deployed to the blockchain', function(done) {
       assert(etherex);
       done();
@@ -69,6 +71,7 @@ contract('Etherex', function(accounts) {
 
         if(error == null) {
           var args = result.args;
+          
           var blocks = args.blockNumber - args.startBlock;
 
           if(args.blockNumber - args.startBlock >= 50) {
@@ -85,9 +88,10 @@ contract('Etherex', function(accounts) {
           assert(false, "Error: " + error)
         }
 
+        //Here we check also if the period had changed to 1, if this was succsessful, then
+        //the states and periods work
         if(args.blockNumber - beginningBlock == 76) {
-          assert(args.period == 1, "Period in block 76 did not change to 1.");
-          stateUpdates.stopWatching();
+          assert(args.period == 1 && args.newState == 0, "Period in block 76 did not change to 1.");
           console.log("Finished 75 blocks");
           done();
         }
@@ -95,8 +99,8 @@ contract('Etherex', function(accounts) {
 
       });
 
-      //Iterate over first part of period
-
+      //Iterate over blocks by making bid submits and ask submits, every transaction is
+      //one block in testrpc
       for(var j = 0; j < 3; j++)
       for (var i = 0; i < 30; i++) {
 
