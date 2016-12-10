@@ -133,17 +133,14 @@ contract Etherex {
     }
 
     /*
-    Wird bei jeder eingehenden Order ausgeführt. 
-    Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
-    inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
-    inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
-    State 0: Normale Orders abgeben (initial: reserve price bestimmen)
-    State 1: Reserve Orders (initial: matching)
+        Should be called in every block, called directly from modifier onlyInState.
+        Every third of period lasts for 25 blocks. The period is updated at the 75. block.
+        On the beginning of the 2/3 of the period is matching called.
     */
     function updateState() internal {
         /*
-        Update state based on current block, no need for 1/3 period condition because
-        it is covered with the other 3
+            Update state based on current block, no need for 1/3 period condition because
+            it is covered with the other 3
         */
         if(currState == 0 && ((block.number - startBlock) >= 25 && (block.number - startBlock) < 50)) {
             //Matching should start
