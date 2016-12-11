@@ -93,15 +93,7 @@ contract Etherex {
         if (identities[msg.sender] == 0 && !DEBUG) throw;
         _;
     }
-    modifier onlyInState(uint8 _state) {
-        updateState();
-        if(_state != currState && !DEBUG) throw;
-        _;
-    }
-    modifier onlyReserveUsers(uint256 _volume) {
-        if (_volume <  RESERVE_PRODUCER_MIN_VOL && !DEBUG) throw;
-        _;
-    }
+
 
     // ###################################################################################################################
     // ########################## Constructor ############################################################################
@@ -141,6 +133,7 @@ contract Etherex {
     inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
     inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgegeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
     */
+    
     function updateState() internal {
         if (DEBUG){
             return;
@@ -148,24 +141,24 @@ contract Etherex {
         if (inStateZero() && currState != 0) {
             currState = 0;    
             determineReserveAskPrice();
+            determineReserveBidPrice();
         } else if (inStateOne() && currState != 1) {
             currState = 1;
             matching();
-        // Zyklus beginnt von vorne
         } else {
-            reset();
+            return;
         } 
     }
  
     function inStateZero() internal returns (bool rv) {
-        if (block.number < (startBlock + 50)) {
+        if (block.number < (startBlock + 25)) {
             return true;
         }
         return false;
     }
 
     function inStateOne() internal returns (bool rv) {
-        if (block.number >= (startBlock + 50) && block.number < (startBlock + 75)) {
+        if (block.number >= (startBlock + 25) && block.number < (startBlock + 50)) {
             return true;
         }
         return false;
@@ -787,6 +780,7 @@ contract Etherex {
         for (uint256 l=3;l<maxUserId;l++) {
             colleteral[l] += shareOfEachUser;
         }
+        reset();
     }
 
 
@@ -860,3 +854,4 @@ contract Etherex {
     }
 
 }
+    
