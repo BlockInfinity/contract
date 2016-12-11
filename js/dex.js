@@ -500,20 +500,8 @@ function settle(_user, _type, _volume, _period) {
   }
 
   if (alreadySettled[_period] && alreadySettled[_period][_user]) {
-    console.warn('user already settled in period ' + _period);
+    //console.warn('user already settled in period ' + _period);
     return false;
-  }
-
-  var reserveAskPrice = askReservePrices[_period];
-  var reserveBidPrice = bidReservePrices[_period];
-
-  if (!reserveAskPrice || !reserveBidPrice) {
-    throw new Error('no reserveAskPrice and/or reserveBidPrice - unable to settle');
-  }
-
-  var matchingPrice = matchingPriceMapping[_period];
-  if (!matchingPrice) {
-    throw new Error('no matchingPrice - unable to settle');
   }
 
   // for test purposes: each user gets assigned a colleteral of 0
@@ -525,6 +513,10 @@ function settle(_user, _type, _volume, _period) {
   var ordered = 0;
   var offered = 0;
   var diff = 0;
+
+  var reserveAskPrice = askReservePrices[_period];
+  var reserveBidPrice = bidReservePrices[_period];
+  var matchingPrice = matchingPriceMapping[_period];
 
   if (_type === 'PRODUCER') {
     // FALL 1: Reserve Ask Order issuer
@@ -614,7 +606,6 @@ function settle(_user, _type, _volume, _period) {
 
         // user hat zu wenig Strom verbraucht
       } else if (_volume < ordered) {
-        console.log('passt');
         // das Ordervolumen muss bezahlt werden für den matching price
         colleteral[user] -= (ordered * matchingPrice);
         // die differenz kann für den schlechten reserveBidPrice verkauft werden

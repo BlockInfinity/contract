@@ -5,6 +5,7 @@ const chai = require('chai');
 const chaiAsPromised = require('chai-as-promised');
 const expect = chai.expect;
 chai.use(chaiAsPromised);
+const assert = require('assert');
 
 const eth = web3.eth;
 
@@ -71,8 +72,6 @@ contract('Etherex', function(accounts) {
       }
     });
   });
-
-
 
   describe('submit orders by consumers', function() {
 
@@ -205,6 +204,116 @@ contract('Etherex', function(accounts) {
     });
   });
 
+  describe.skip('match bid and ask orders', function() {
+
+    var priceMultiplier = 100;
+    var volumeMultiplier = 100;
+
+    beforeEach(function() {
+      return co(function*() {
+        for (var i = 0; i < certificateAuthorities.length; i++) {
+          assert(certificateAuthorities[i]);
+          yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
+        }
+
+        for (var i = 0; i < producers.length; i++) {
+          assert(producers[i]);
+          assert(consumers[i]);
+          yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
+        }
+      });
+    });
+
+    it('no orders inserted - no matching price', function() {
+      return expect(co(function*() {
+        yield etherex.matching();
+        var matchingPrice = yield etherex.getMatchingPriceMapping.call(1);
+        assert.equal(matchingPrice.toNumber(), Math.pow(2, 128) - 1);
+      })).not.to.be.rejected;
+    });
+  });
+
+  describe.skip('match bid and ask orders', function() {
+
+    var priceMultiplier = 100;
+    var volumeMultiplier = 100;
+
+    beforeEach(function() {
+      return co(function*() {
+        for (var i = 0; i < certificateAuthorities.length; i++) {
+          assert(certificateAuthorities[i]);
+          yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
+        }
+
+        for (var i = 0; i < producers.length; i++) {
+          assert(producers[i]);
+          assert(consumers[i]);
+          yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
+        }
+      });
+    });
+
+    it('minAsk is greater than maxBid - no matching price', function() {
+      return expect(co(function*() {
+        for (var i = 0; i < 10; i++) {
+          yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
+        }
+        for (var i = 10; i < 20; i++) {
+          yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
+        }
+        yield etherex.matching();
+        var matchingPrice = yield etherex.getMatchingPriceMapping.call(1);
+        assert.equal(matchingPrice.toNumber(), Math.pow(2, 128) - 1);
+      })).not.to.be.rejected;
+    });
+  });
+
+  describe.skip('match bid and ask orders', function() {
+
+    var priceMultiplier = 100;
+    var volumeMultiplier = 100;
+
+    beforeEach(function() {
+      return co(function*() {
+        for (var i = 0; i < certificateAuthorities.length; i++) {
+          assert(certificateAuthorities[i]);
+          yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
+        }
+
+        for (var i = 0; i < producers.length; i++) {
+          assert(producers[i]);
+          assert(consumers[i]);
+          yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
+        }
+      });
+    });
+
+    // cumBidVol = 2400, cumAskVol = 2800 => use only portion ask orders
+    it('cumBidVol < cumAskVol - should work', function() {
+      return expect(co(function*() {
+        for (var i = 0; i < 10; i++) {
+          yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
+        }
+        for (var i = 0; i < 10; i++) {
+          yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
+        }
+        yield etherex.matching();
+        var expectedMatchAsks = [{p: 0, v: 0}, {p: 1, v: 85}, {p: 2, v: 171}, {p: 3, v: 257}, {p: 4, v: 342}, {p: 5, v: 428}, {p: 6, v: 514}, {p: 7, v: 600}];
+        for (var i = 0; i < expectedMatchAsks.length; i++) {
+          var volume = yield etherex.getMatchedAskOrderMapping.call(1, producers[expectedMatchAsks[i].p]);
+          assert.equal(volume.toNumber(), expectedMatchAsks[i].v);
+        }
+        var expectedMatchBids = [{p: 7, v: 700}, {p: 8, v: 800}, {p: 9, v: 900}];
+        for (var i = 0; i < expectedMatchBids.length; i++) {
+          var volume = yield etherex.getMatchedBidOrderMapping.call(1, consumers[expectedMatchBids[i].p]);
+          assert.equal(volume.toNumber(), expectedMatchBids[i].v);
+        }
+        var matchingPrice = yield etherex.getMatchingPriceMapping.call(1);
+        assert.equal(matchingPrice.toNumber(), 700);
+      })).not.to.be.rejected;
+    });
+  });
+
   describe('match bid and ask orders', function() {
 
     var priceMultiplier = 100;
@@ -222,68 +331,61 @@ contract('Etherex', function(accounts) {
           assert(consumers[i]);
           yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
         }
+      });
+    });
 
+    // cumBidVol = 4500, cumAskVol = 100 => use only portion bid orders
+    it('cumBidVol > cumAskVol - should work', function() {
+      return expect(co(function*() {
         for (var i = 0; i < 10; i++) {
           yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
-          yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
         }
-      });
-    });
-
-    afterEach(function() {
-      return co(function*() {
-        yield etherex.reset();
-      });
-    });
-
-    // Todo(ms): fix test, check content of matched orders
-    it('call match() - should work', function() {
-      return expect(co(function*() {
-        etherex.matching();
+        yield etherex.submitAsk(0 * priceMultiplier, 1 * volumeMultiplier, {from: producers[0]});
+        yield etherex.matching();
+        var expectedMatchAsks = [{p: 0, v: 100}];
+        for (var i = 0; i < expectedMatchAsks.length; i++) {
+          var volume = yield etherex.getMatchedAskOrderMapping.call(1, producers[expectedMatchAsks[i].p]);
+          assert.equal(volume.toNumber(), expectedMatchAsks[i].v);
+        }
+        var expectedMatchBids = [{p: 0, v: 0}, {p: 1, v: 2}, {p: 2, v: 4}, {p: 3, v: 6}, {p: 4, v: 8}, {p: 5, v: 11}, {p: 6, v: 13}, {p: 7, v: 15}, {p: 8, v: 17}, {p: 9, v: 20}];
+        for (var i = 0; i < expectedMatchBids.length; i++) {
+          var volume = yield etherex.getMatchedBidOrderMapping.call(1, consumers[expectedMatchBids[i].p]);
+          assert.equal(volume.toNumber(), expectedMatchBids[i].v);
+        }
+        var matchingPrice = yield etherex.getMatchingPriceMapping.call(1);
+        assert.equal(matchingPrice.toNumber(), 0);
       })).not.to.be.rejected;
     });
   });
 
+  describe('determine reserve bid and ask prices', function() {
 
-
-  // Tests for determining reserve bid and reserve ask prices
-  describe('determine reserve  prices', function() {
-    
     var priceMultiplier = 100;
     var volumeMultiplier = 100;
     var reserveVolumeMultiplier = 1000000;
-    
+
     beforeEach(function() {
-      co(function*() {
+      return co(function*() {
         for (var i = 1; i < certificateAuthorities.length; i++) {
           assert(certificateAuthorities[i]);
           yield etherex.registerCertificateAuthority(certificateAuthorities[i], {from: accounts[0]});
         }
-
         for (var i = 1; i < producers.length; i++) {
           assert(producers[i]);
           assert(consumers[i]);
           yield etherex.registerSmartMeter(producers[i], consumers[i], {from: certificateAuthorities[0]});
         }
-
         for (var i = 1; i < 10; i++) {
           yield etherex.submitBid(i * priceMultiplier, i * volumeMultiplier, {from: consumers[i]});
           yield etherex.submitAsk(i * priceMultiplier, i * volumeMultiplier, {from: producers[i]});
         }
-
-        etherex.matching();
-
-        
+        yield etherex.matching();
         for (var i = 1; i < 5; i++) {
           yield etherex.submitReserveBid(i * priceMultiplier, i * reserveVolumeMultiplier, {from: consumers[i]});
           yield etherex.submitReserveAsk(i * priceMultiplier, i * reserveVolumeMultiplier, {from: producers[i]});
         }
-
       });
-
-
     });
-
 
     afterEach(function() {
       return co(function*() {
@@ -291,41 +393,24 @@ contract('Etherex', function(accounts) {
       });
     });
 
-
     it('determine reserve ask price', function(done) {
-        
-        etherex.determineReserveAskPrice.call().then(function(result) {
-
-          
-          var price = result.toNumber();
-          expect(price).to.not.equal(0);
-          assert(price <= priceMultiplier*5, "Price is larger than max possible price: " + price);
-          //TODO check if price is right
-          done();
-
-        });
-
+      etherex.determineReserveAskPrice.call().then(function(result) {
+        var price = result.toNumber();
+        expect(price).to.not.equal(0);
+        assert(price <= priceMultiplier * 5, 'Price is larger than max possible price: ' + price);
+        //TODO check if price is right
+        done();
+      });
     });
-
-
 
     it('determine reserve bid price', function(done) {
-          
-          etherex.determineReserveBidPrice.call().then(function(result) {
-
-          var price = result.toNumber();
-          expect(price).to.not.equal(0);
-          assert(price <= priceMultiplier*10, "Price is larger than max possible price: " + price);
-
-          //TODO check if price is right
-
-          done();
-
-        });
-
+      etherex.determineReserveBidPrice.call().then(function(result) {
+        var price = result.toNumber();
+        expect(price).to.not.equal(0);
+        assert(price <= priceMultiplier * 10, 'Price is larger than max possible price: ' + price);
+        //TODO check if price is right
+        done();
+      });
     });
-
-
-  }); 
-
+  });
 });
