@@ -448,7 +448,8 @@ contract Etherex {
               reserve_price = orders[ask_id_iter].price;
             }        
         }
-        askReservePrices[currentPeriod] = reserve_price;       
+        askReservePrices[currentPeriod] = reserve_price;  
+        return true;     
     }
 
     // ###################################################################################################################
@@ -543,9 +544,6 @@ contract Etherex {
     // for debug purposes not included 
     function settle(address _user, int8 _type, uint256 _volume, uint256 _period) onlyProducers() onlyConsumers() {
         if (!(_type == 1 || _type == 2)) {
-            throw;
-        }
-        if (_volume == 0) {
             throw;
         }
         // currentPeriod needs to be greater than the _period that should be settled 
