@@ -140,37 +140,46 @@ contract Etherex {
     inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
     inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgegeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
     */
-    // todo(ms): this should be called automatically/internally
+    // todo(ms): this should be called automatically/internally, now public for testing purposes
     function nextState() /* internal */ {
         if (currState == 0) {
-            // process matching
-            matching();
-            minAsk = 0;
-            maxBid = 0;
-            // move on to state 1
-            currState = 1;
+            // if matching success, move to state 1
+            if (matching()) {
+                minAsk = 0;
+                maxBid = 0;
+                // move on to state 1
+                currState = 1;
+            // matching failed due to empty orderbook,
+            // init and just increment currentPeriod
+            } else {
+                init();
+            }
         } else if (currState == 1) {
             // compute reserve prices
             determineReserveAskPrice();
             determineReserveBidPrice();
-            minAsk = 0;
-            maxBid = 0;
-            // reset orders
-            delete orders;
-            Order memory blankOrder = Order(0, 0, 0, 0, 0);
-            orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
-            orderIdCounter = 1;
-            // increment period
-            currentPeriod++;
-            // update start block
-            startBlock = block.number;
+            init();
             // move on to state 0
             currState = 0;
         } else {
             throw;
         }
     }
- 
+
+    function init() internal {
+        minAsk = 0;
+        maxBid = 0;
+        // reset orders
+        delete orders;
+        Order memory blankOrder = Order(0, 0, 0, 0, 0);
+        orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
+        orderIdCounter = 1;
+        // increment period
+        currentPeriod++;
+        // update start block
+        startBlock = block.number;
+    }
+  
     function inStateZero() internal returns (bool rv) {
         if (block.number < (startBlock + 25)) {
             return true;
@@ -189,11 +198,11 @@ contract Etherex {
     // ########################## user interace  #########################################################################
     // ###################################################################################################################
 
-    function submitBid(int256 _price, uint256 _volume) onlyProducers() onlyConsumers() {
+    function submitBid(int256 _price, uint256 _volume) onlyConsumers() {
         saveOrder("BID", _price, _volume);
     }
 
-    function submitAsk(int256 _price, uint256 _volume) onlyProducers() onlyConsumers() {
+    function submitAsk(int256 _price, uint256 _volume) onlyProducers() {
         saveOrder("ASK", _price, _volume);
     } 
 
@@ -270,18 +279,16 @@ contract Etherex {
     }
 
     // match bid and ask orders
-    function matching() internal {
+    function matching() internal returns(bool) {
         // no orders submitted at all or at least one ask and bid missing
         // return if no orders or no match possible since minAsk greater than maxBid
         if (orders.length == 1) {
-            nextState();
             matchingPrices[currentPeriod] = 2**128-1;
-            return;
+            return false;
         }
         if (minAsk == 0 || maxBid == 0 || (orders[minAsk].price > orders[maxBid].price)) {
-            nextState();
             matchingPrices[currentPeriod] = 2**128-1;
-            return;
+            return false;
         }
 
         uint256 cumAskVol = 0;
@@ -364,10 +371,16 @@ contract Etherex {
                 = orders[currMatchedAskOrderMapping[jj]].volume;
             }
         }
+
+        return true;
     }
     
     // determines price till volume of MIN_RESERVE_ASK_VOLUME is accumulated  
-    function determineReserveBidPrice() internal {
+    function determineReserveBidPrice() internal returns(bool) {
+        if (maxBid == 0) {
+            bidReservePrices[currentPeriod] = 2**128-1;
+            return false;
+        }
         uint256 cumBidReserveVol = 0;
         int256 reserveBidPrice = orders[maxBid].price;
         bool isFound = false;
@@ -398,10 +411,15 @@ contract Etherex {
             }
         }
         bidReservePrices[currentPeriod] = reserveBidPrice;
+        return true;
     }
 
     // determines price till volume of MIN_RESERVE_BID_VOLUME is accumulated  
-    function determineReserveAskPrice() internal {
+    function determineReserveAskPrice() internal returns(bool) {
+        if (minAsk == 0) {
+            askReservePrices[currentPeriod] = 2**128-1;
+            return false;
+        }
         uint256 cumAskReserveVol = 0;
         int256 reserve_price = orders[minAsk].price;
         bool isFound = false;
@@ -523,7 +541,7 @@ contract Etherex {
     // Settlement function called by smart meter
     // _type=1 for Consumer and _type=2 for Producer
     // for debug purposes not included 
-    function settle(address _user, int8 _type, uint256 _volume, uint256 _period) /*internal*/ onlyProducers() onlyConsumers() {
+    function settle(address _user, int8 _type, uint256 _volume, uint256 _period) onlyProducers() onlyConsumers() {
         if (!(_type == 1 || _type == 2)) {
             throw;
         }
@@ -617,7 +635,7 @@ contract Etherex {
                 // smart meter daten werden vorerst gespeichert für die spätere Abrechnung in der endSettle Funktion
                 ordered = matchedBidReserveOrders[_period][_user];
                 // process later
-                settleMapping[_period].bidSmData.push(SettleUserData(_user,_volume));
+                settleMapping[_period].bidSmData.push(SettleUserData(_user, _volume));
                 // Volumen was von den reserve Leute vom Netz genommen wurde, weil zu viel Strom vorhanden war
                 settleMapping[_period].sumConsumed += _volume; 
                 // wird auf undefined gesetzt damit selbiger user nicht nochmals settlen kann
@@ -872,24 +890,41 @@ contract Etherex {
         return settleMapping[_period].sumProduced;
     }
 
-    function reset() {
-        currState = 0;
-        currentPeriod = 0;
-        currentUserId = 0;
-        numUsers = 0;
+    function getSumOfColleteral() constant returns(int256) {
+        int256 sum = 0;
+        for (uint256 i=0; i<currentUserId-1; i++) {
+            sum += colleteral[i];
+        }
+        return sum;
+    }
 
+    function getEnergyBalance(uint256 _period) constant returns(uint256) {
+        uint256 sumReserveConsumed = 0;
+        for (uint256 i=0; i<settleMapping[_period].bidSmData.length; i++) {
+            sumReserveConsumed += settleMapping[_period].bidSmData[i].smVolume;
+        }
+        uint256 sumReserveProduced = 0;
+        for (uint256 j=0; j<settleMapping[_period].askSmData.length; j++) {
+            sumReserveProduced += settleMapping[_period].askSmData[j].smVolume;
+        }
+        return (settleMapping[_period].sumConsumed + sumReserveConsumed) 
+            - (settleMapping[_period].sumProduced + sumReserveProduced);
+    }
+
+    function reset() {
+        startBlock = block.number;
+        currState = 0;
         minAsk = 0;
         maxBid = 0;
         // reset orders
         delete orders;
         Order memory blankOrder = Order(0, 0, 0, 0, 0);
-        orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
+        orders.push(blankOrder);
         orderIdCounter = 1;
-        // increment period
-            // update start block
-            startBlock = block.number;
-            // move on to state 0
-            currState = 0;
+        // reset collateral
+        for (uint256 i=0; i<currentUserId-1; i++) {
+            colleteral[i] = 0;
+        }
     }
 
 }
