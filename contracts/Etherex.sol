@@ -8,15 +8,16 @@ contract Etherex {
     // ########################## Variables for user management  #########################################################
 
     // users' money balances
-    mapping(uint256 => int256) public colleteral;
-    mapping(address => address) smartMeterToUser;
-    // 1: CA, 2: smart meter, >=3: user ids  
+    mapping(uint256 => int256) colleteral;
     mapping(address => uint256) identities;
-    uint256 public maxUserId;
+    // 1: CA, 2: producer, 3: consumer  
+    uint8[] userType;
+    uint256 currentUserId;
+    uint256 numUsers;
 
     // ########################## Variables for state/period management  ##################################################
 
-    uint256 public currentPeriod;
+    uint256 currentPeriod;
     uint8 currState;
     uint256 startBlock;
 
@@ -32,8 +33,8 @@ contract Etherex {
     // contains all orders 
     Order[] orders;
     // pointers to the best prices 
-    uint256 public minAsk = 0;
-    uint256 public maxBid = 0;
+    uint256 minAsk;
+    uint256 maxBid;
     uint256 orderIdCounter;
 
     // ########################## Variables for matching function  ########################################################  
@@ -43,10 +44,6 @@ contract Etherex {
     mapping(uint256 => int256) matchingPrices;
     uint256[] currMatchedAskOrderMapping;
     uint256[] currmatchedBidOrders;
-    // flag when matching done
-    bool isMatchingDone = false;
-
-            
 
     // ########################## Variables for reserve function  ########################################################
 
@@ -64,7 +61,6 @@ contract Etherex {
         uint256 smVolume;
     }
     struct settleData{
-        bool isFirstSettle;
         mapping(address => bool) alreadySettled;
         uint256 settleCounter;
         uint256 sumProduced;
@@ -82,15 +78,15 @@ contract Etherex {
     // ###################################################################################################################
 
     modifier onlyCertificateAuthorities() {
-        if (identities[msg.sender] != 1 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 0 && !DEBUG) throw;
         _;
     }
-    modifier onlySmartMeters() {
-        if (identities[msg.sender] != 2 && !DEBUG) throw;
+    modifier onlyProducers() {
+        if (userType[identities[msg.sender]] != 1 && !DEBUG) throw;
         _;
     }
-    modifier onlyUsers() {
-        if (identities[msg.sender] == 0 && !DEBUG) throw;
+    modifier onlyConsumers() {
+        if (userType[identities[msg.sender]] != 2 && !DEBUG) throw;
         _;
     }
 
@@ -99,27 +95,38 @@ contract Etherex {
     // ########################## Constructor ############################################################################
     // ###################################################################################################################
 
-    function Etherex(address _certificateAuthority) {
-        identities[_certificateAuthority] = 1;
-        currState = 0;
-        maxUserId = 3;
+    function Etherex() {
+        currentUserId = 0;
+        numUsers = 0;
         currentPeriod = 0;
-        reset();
+        startBlock = block.number;
+        currState = 0;
+        minAsk = 0;
+        maxBid = 0;
+        Order memory blankOrder = Order(0, 0, 0, 0, 0);
+        orders.push(blankOrder);
+        orderIdCounter = 1;
     }
-
 
     // ###################################################################################################################
     // ########################## Registration  ##########################################################################
     // ###################################################################################################################
 
-    function registerCertificateAuthority(address _ca) {
-        identities[_ca] = 1;
+    function registerCertificateAuthority(address _user) {
+        identities[_user] = currentUserId++;
+        userType.push(0);
     }
 
-    function registerSmartMeter(address _sm, address _user) onlyCertificateAuthorities() {
-        identities[_sm] = 2;
-        identities[_user] = maxUserId++;
-        smartMeterToUser[_sm] = _user; 
+    function registerProducer(address _user) onlyCertificateAuthorities() {
+        identities[_user] = currentUserId++;
+        userType.push(1);
+        numUsers++;
+    }
+
+    function registerConsumer(address _user) onlyCertificateAuthorities() {
+        identities[_user] = currentUserId++;
+        userType.push(2);
+        numUsers++;
     }
 
 
@@ -133,21 +140,35 @@ contract Etherex {
     inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
     inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgegeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
     */
-    
-    function updateState() internal {
-        if (DEBUG){
-            return;
-        }
-        if (inStateZero() && currState != 0) {
-            currState = 0;    
+    // todo(ms): this should be called automatically/internally
+    function nextState() /* internal */ {
+        if (currState == 0) {
+            // process matching
+            matching();
+            minAsk = 0;
+            maxBid = 0;
+            // move on to state 1
+            currState = 1;
+        } else if (currState == 1) {
+            // compute reserve prices
             determineReserveAskPrice();
             determineReserveBidPrice();
-        } else if (inStateOne() && currState != 1) {
-            currState = 1;
-            matching();
+            minAsk = 0;
+            maxBid = 0;
+            // reset orders
+            delete orders;
+            Order memory blankOrder = Order(0, 0, 0, 0, 0);
+            orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
+            orderIdCounter = 1;
+            // increment period
+            currentPeriod++;
+            // update start block
+            startBlock = block.number;
+            // move on to state 0
+            currState = 0;
         } else {
-            return;
-        } 
+            throw;
+        }
     }
  
     function inStateZero() internal returns (bool rv) {
@@ -164,27 +185,15 @@ contract Etherex {
         return false;
     }
 
-    function reset() internal {
-        startBlock = block.number;
-        isMatchingDone = false;
-        delete orders;
-        // insert blanko order into orders because idx=0 is a placeholder
-        Order memory blankOrder = Order(0, 0, 0, 0, 0);
-        orders.push(blankOrder);
-        orderIdCounter = 1;
-        minAsk = 0;
-        maxBid = 0;
-    }
-
     // ###################################################################################################################
     // ########################## user interace  #########################################################################
     // ###################################################################################################################
 
-    function submitBid(int256 _price, uint256 _volume) onlyUsers(){
+    function submitBid(int256 _price, uint256 _volume) onlyProducers() onlyConsumers() {
         saveOrder("BID", _price, _volume);
     }
 
-    function submitAsk(int256 _price, uint256 _volume) onlyUsers(){
+    function submitAsk(int256 _price, uint256 _volume) onlyProducers() onlyConsumers() {
         saveOrder("ASK", _price, _volume);
     } 
 
@@ -195,6 +204,13 @@ contract Etherex {
     
 
     function saveOrder(bytes32 _type, int256 _price, uint256 _volume) internal {
+        if (!(_type == "ASK" || _type == "BID")) {
+            throw;
+        }
+        if (_volume == 0) {
+            throw;
+        }
+
         // allocate new order
         Order memory currOrder = Order(orderIdCounter++, 0, msg.sender, _volume, _price);
  
@@ -254,21 +270,16 @@ contract Etherex {
     }
 
     // match bid and ask orders
-    function matching() {
-        // todo(ms): currentPeriod increment should be controlled outside of matching()-function 
-        currentPeriod++;
-
+    function matching() internal {
         // no orders submitted at all or at least one ask and bid missing
         // return if no orders or no match possible since minAsk greater than maxBid
         if (orders.length == 1) {
-            reset();
+            nextState();
             matchingPrices[currentPeriod] = 2**128-1;
             return;
         }
         if (minAsk == 0 || maxBid == 0 || (orders[minAsk].price > orders[maxBid].price)) {
-            reset();
-            // todo(ms): should we set isMatchingDone in this case?
-            isMatchingDone = true;
+            nextState();
             matchingPrices[currentPeriod] = 2**128-1;
             return;
         }
@@ -357,7 +368,6 @@ contract Etherex {
     
     // determines price till volume of MIN_RESERVE_ASK_VOLUME is accumulated  
     function determineReserveBidPrice() internal {
-
         uint256 cumBidReserveVol = 0;
         int256 reserveBidPrice = orders[maxBid].price;
         bool isFound = false;
@@ -420,13 +430,9 @@ contract Etherex {
               reserve_price = orders[ask_id_iter].price;
             }        
         }
-
         askReservePrices[currentPeriod] = reserve_price;       
     }
 
- 
-
- 
     // ###################################################################################################################
     // ########################## testing area  ##########################################################################
     // ###################################################################################################################
@@ -500,7 +506,6 @@ contract Etherex {
     event InBidNormal(int256, uint256, uint256,int256);
     event InNoBidOrder(int256, uint256, uint256,int256);
 
-
     event log(string msg);
     event check(bool);
 
@@ -518,27 +523,20 @@ contract Etherex {
     // Settlement function called by smart meter
     // _type=1 for Consumer and _type=2 for Producer
     // for debug purposes not included 
-    function settle(address _user,int8 _type,uint256 _volume,uint256 _period) internal onlySmartMeters() {
-
-        if (_user == 0) {
-            throw;
-        }
-        if (_type == 0) {
-            throw;
-        }
-        if (_period == 0) {
+    function settle(address _user, int8 _type, uint256 _volume, uint256 _period) /*internal*/ onlyProducers() onlyConsumers() {
+        if (!(_type == 1 || _type == 2)) {
             throw;
         }
         if (_volume == 0) {
             throw;
         }
         // currentPeriod needs to be greater than the _period that should be settled 
-        if (!(currentPeriod > _period)) {
+        if (!(currentPeriod >= _period)) {
             throw;    
         }
 
         // smart meter has already sent data for this particular user
-        if (settleMapping[_period].alreadySettled[_user]){
+        if (settleMapping[_period].alreadySettled[_user]) {
             throw;
         }
         // for debug purposes not defined here
@@ -548,9 +546,9 @@ contract Etherex {
         userId = identities[_user];
     
         // producer 
-        if (_type == 2) {
+        if (_type == 1) {
             // case 1: reserve ask guy
-            if (matchedAskReserveOrders[_period][_user] != 0){          // TODO: matchedReserveOrders needs to be splitted in matchedAskReserveOrders and matchedBidReserveOrders
+            if (matchedAskReserveOrders[_period][_user] != 0) {          // TODO: matchedReserveOrders needs to be splitted in matchedAskReserveOrders and matchedBidReserveOrders
                 // Smart Meter Daten werden vorerst gespeichert für die spätere Abrechnung in der endSettle Funktion
                 settleMapping[_period].askSmData.push(SettleUserData(_user,_volume));
                 settleMapping[_period].sumProduced += _volume; 
@@ -560,7 +558,7 @@ contract Etherex {
                 InAskReserve(settleMapping[_period].askSmData[0].smVolume, settleMapping[_period].sumProduced);
     
             // case 2: normal ask order guy
-            } else if (matchedAskOrders[_period][_user] != 0){
+            } else if (matchedAskOrders[_period][_user] != 0) {
                 offered = matchedAskOrders[_period][_user];
                  // _user hat zu wenig Strom eingespeist
                 if (_volume < offered) {
@@ -612,7 +610,7 @@ contract Etherex {
         }
     
         // consumer
-        if (_type == 1) {
+        if (_type == 2) {
             // case 1: reserve bid guy
             if (matchedBidReserveOrders[_period][_user] != 0) {
                 log("in bid reserve");
@@ -640,7 +638,7 @@ contract Etherex {
                     settleMapping[_period].lack += diff; 
                     log("has consumed too much");  
     
-                    // user hat zu wenig Strom verbraucht
+                // user hat zu wenig Strom verbraucht
                 } else if (_volume < ordered) {
                     // das Ordervolumen muss bezahlt werden für den matching price
                     colleteral[userId] -= (int256(ordered) * matchingPrices[_period]);
@@ -651,7 +649,7 @@ contract Etherex {
                     settleMapping[_period].excess += diff;
                     log("has consumed too less");
     
-                    // user hat genau so viel verbraucht wie zuvor vereinbart
+                // user hat genau so viel verbraucht wie zuvor vereinbart
                 } else {
                     colleteral[userId] -= (int256(_volume) * matchingPrices[_period]);
                     log("has consumed just right");
@@ -662,7 +660,7 @@ contract Etherex {
                 //matchedBidOrders[_period][user] = undefined;
                 InBidNormal(colleteral[userId],_volume,ordered,matchingPrices[_period]);
     
-                // FALL 3: No Order emitted
+            // case 3: No Order emitted
             } else {
                 // track collaterial
                 colleteral[userId] -= (int256(_volume) * askReservePrices[_period]);
@@ -684,11 +682,10 @@ contract Etherex {
         settleMapping[_period].alreadySettled[_user] = true;
     
         // todo: endSettle Funktion muss beim Eingang des letzten smart meter datensatzes automatisch ausgeführt werden
-        if ( settleMapping[_period].settleCounter == (maxUserId - 3)) {
+        if (settleMapping[_period].settleCounter == numUsers) {
             log("before endSettle");
             endSettle(_period);
         }
-    
     }
 
     // ###################################################################################################################
@@ -721,7 +718,6 @@ contract Etherex {
     // ###################################################################################################################
 
     function endSettle(uint256 _period) internal {
-    
         int256 diff = int256(settleMapping[_period].excess) - int256(settleMapping[_period].lack);
         int256 smVolume = 0;
         address user;
@@ -730,7 +726,7 @@ contract Etherex {
         ShowDiff(diff);
         
         if (diff >= 0) {
-            for (uint256 i = 0;i<settleMapping[_period].bidSmData.length;i++) {   
+            for (uint256 i = 0; i<settleMapping[_period].bidSmData.length; i++) {   
                 log("is in for loop with positive diff"); 
                 smVolume = int256(settleMapping[_period].bidSmData[i].smVolume);
                 if (smVolume == 0) continue;
@@ -769,18 +765,20 @@ contract Etherex {
         }
     
         int256 moneyLeft = 0;
-    
-        for (uint256 k=3;k<maxUserId;k++) {
-            moneyLeft += colleteral[k];
+        for (uint256 k=0; k<currentUserId-1; k++) {
+            if (userType[k] == 1 || userType[k] == 2) {
+                moneyLeft += colleteral[k];
+            }
         }
         ShowDiff(moneyLeft);
-        int256 shareOfEachUser = moneyLeft / int256(maxUserId-3);
+        int256 shareOfEachUser = moneyLeft / int256(numUsers);
         shareOfEachUser = shareOfEachUser * -1;
         ShowDiff(shareOfEachUser);
-        for (uint256 l=3;l<maxUserId;l++) {
-            colleteral[l] += shareOfEachUser;
+        for (uint256 l=0; l<currentUserId-1; l++) {
+            if (userType[l] == 1 || userType[l] == 2) {
+                colleteral[l] += shareOfEachUser;
+            }
         }
-        reset();
     }
 
 
@@ -837,20 +835,61 @@ contract Etherex {
         return orders[_orderId].price;
     }
 
-    function getorderedVolume(uint256 _orderId) constant returns(uint256) {
+    function getOrderVolume(uint256 _orderId) constant returns(uint256) {
         return orders[_orderId].volume;
     }
 
-    function getMatchedAskOrderMapping(uint256 _period, address _owner) constant returns(uint256) {
+    function getMatchedAskOrders(uint256 _period, address _owner) constant returns(uint256) {
         return matchedAskOrders[_period][_owner];
     }
 
-    function getmatchedBidOrders(uint256 _period, address _owner) constant returns(uint256) {
+    function getMatchedBidOrders(uint256 _period, address _owner) constant returns(uint256) {
         return matchedBidOrders[_period][_owner];
     }
 
-    function getMatchingPriceMapping(uint256 _period) constant returns(int256) {
+    function getMatchingPrices(uint256 _period) constant returns(int256) {
         return matchingPrices[_period];
+    }
+
+    function getLack(uint256 _period) constant returns(uint256) {
+        return settleMapping[_period].lack;
+    }
+
+    function getExcess(uint256 _period) constant returns(uint256) {
+        return settleMapping[_period].excess;
+    }
+
+    function getCollateral(address _owner) constant returns(int256) {
+        uint256 userId = identities[_owner];
+        return colleteral[userId];
+    }
+
+    function getSumConsumed(uint256 _period) constant returns(uint256) {
+        return settleMapping[_period].sumConsumed;
+    }
+
+    function getSumProduced(uint256 _period) constant returns(uint256) {
+        return settleMapping[_period].sumProduced;
+    }
+
+    function reset() {
+        currState = 0;
+        currentPeriod = 0;
+        currentUserId = 0;
+        numUsers = 0;
+
+        minAsk = 0;
+        maxBid = 0;
+        // reset orders
+        delete orders;
+        Order memory blankOrder = Order(0, 0, 0, 0, 0);
+        orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
+        orderIdCounter = 1;
+        // increment period
+            // update start block
+            startBlock = block.number;
+            // move on to state 0
+            currState = 0;
     }
 
 }
