@@ -867,12 +867,12 @@ function settleTest(_numberOfUsers, _period) {
   var volumeMultiplier = 100;
   var owner = 1;
   for (var i = 0; i < _numberOfUsers / 4; i++) {
-    if (saveOrder('BID', i * volumeMultiplier, owner, i * priceMultiplier)) {
+    if (saveOrder('BID', 100 + i * volumeMultiplier, owner, 100 + i * priceMultiplier)) {
       owner++;
     }
   }
   for (var i = 0; i < _numberOfUsers / 4; i++) {
-    if (saveOrder('ASK', i * volumeMultiplier, owner, i * priceMultiplier)) {
+    if (saveOrder('ASK', 100 + i * volumeMultiplier, owner, 100 + i * priceMultiplier)) {
       owner++;
     }
   }
@@ -887,30 +887,31 @@ function settleTest(_numberOfUsers, _period) {
   saveOrder('BID', 1, owner++, 1);
   saveOrder('ASK', 1, owner++, 1);
   nextState();
-  assert.equal(700, bidReservePrices[_period]);
-  assert.equal(700, askReservePrices[_period]);
+  assert.equal(800, bidReservePrices[_period]);
+  assert.equal(800, askReservePrices[_period]);
   printReserveOrderMatchingResult();
 
   owner = 1;
   var matchedAskOrders = getMatchedAskOrders();
   var sumProducedTmp = 0;
   for (var i = 0; i < matchedAskOrders.length; i++) {
+    console.log(matchedAskOrders[i].volume);
     settle(matchedAskOrders[i].owner, 'PRODUCER', matchedAskOrders[i].volume, _period);
     assert.equal(colleteral[matchedAskOrders[i].owner], matchedAskOrders[i].volume * matchingPriceMapping[_period]);
     sumProducedTmp += matchedAskOrders[i].volume;
   }
-  assert.equal(sumProduced[_period], sumProducedTmp);
-
   var matchedBidOrders = getMatchedBidOrders();
   var sumConsumedTmp = 0;
   for (var i = 0; i < matchedBidOrders.length; i++) {
+    console.log(matchedBidOrders[i].volume);
     settle(matchedBidOrders[i].owner, 'CONSUMER', matchedBidOrders[i].volume, _period);
     assert.equal(colleteral[matchedBidOrders[i].owner], -matchedBidOrders[i].volume * matchingPriceMapping[_period]);
     sumConsumedTmp += matchedBidOrders[i].volume;
   }
-  assert.equal(sumConsumed[_period], sumConsumedTmp);
   assert.equal(excess[_period], 0);
   assert.equal(lack[_period], 0);
+  assert.equal(sumConsumed[_period], sumConsumedTmp);
+  assert.equal(sumProduced[_period], sumConsumedTmp);
 
   var sum = getSumOfColleteral();
   assert(Math.abs(sum) < 0.0000000001);
