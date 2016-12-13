@@ -159,6 +159,7 @@ contract Etherex {
             determineReserveAskPrice();
             determineReserveBidPrice();
             init();
+
             // move on to state 0
             currState = 0;
         } else {
@@ -404,7 +405,7 @@ contract Etherex {
                 }
             }
 
-            if (cumBidReserveVol >= MIN_RESERVE_ASK_VOLUME) {
+            if (cumBidReserveVol >= MIN_RESERVE_BID_VOLUME) {
                 isFound = true;
             } else {
                 reserveBidPrice = orders[bidIterId].price;
@@ -442,9 +443,9 @@ contract Etherex {
                 }
             }
 
-            if (cumAskReserveVol >= MIN_RESERVE_BID_VOLUME) {
-              isFound = true;
-            } else {
+            if (cumAskReserveVol >= MIN_RESERVE_ASK_VOLUME) {
+              isFound = true;            
+              }  else {
               reserve_price = orders[ask_id_iter].price;
             }        
         }
@@ -475,7 +476,7 @@ contract Etherex {
     //     settle(2,100,currentPeriod++);          
     // }  
 
-    // function test_settle_NoAskOrderEmitted(){
+    // function test_settle_NoAskOrderEmitted(){g
     //     address _user = address(123);
     //     identities[_user] = 1;
     //     currentPeriod = 1;
@@ -540,21 +541,30 @@ contract Etherex {
 
    
     // Settlement function called by smart meter
-    // _type=1 for Consumer and _type=2 for Producer
+    // _type=2 for Consumer and _type=1 for Producer
     // for debug purposes not included 
     function settle(address _user, int8 _type, uint256 _volume, uint256 _period) onlyProducers() onlyConsumers() {
         if (!(_type == 1 || _type == 2)) {
-            throw;
+            log("neither producer nor consumer");
+            return;
         }
         // currentPeriod needs to be greater than the _period that should be settled 
-        if (!(currentPeriod >= _period)) {
-            throw;    
-        }
+        // if (!(currentPeriod > _period)) {
+        //     log("period already settled");
+        //     return;    
+        // }
 
         // smart meter has already sent data for this particular user
         if (settleMapping[_period].alreadySettled[_user]) {
-            throw;
+            log("aleady settled");
+            return;
         }
+
+        // increment settle counter
+        settleMapping[_period].settleCounter += 1;
+
+
+
         // for debug purposes not defined here
         ordered = 0;
         offered = 0;
@@ -691,17 +701,16 @@ contract Etherex {
             }
         }
     
-        // increment settle counter
-        settleMapping[_period].settleCounter += 1;
-    
         // set user as settled for currentPeriod
         settleMapping[_period].alreadySettled[_user] = true;
-    
+        
+        log("settled");
         // todo: endSettle Funktion muss beim Eingang des letzten smart meter datensatzes automatisch ausgeführt werden
         if (settleMapping[_period].settleCounter == numUsers) {
             log("before endSettle");
             endSettle(_period);
         }
+        
     }
 
     // ###################################################################################################################
@@ -727,7 +736,7 @@ contract Etherex {
     // }  
 
 
-    event ShowDiff(int256);
+    event ShowDiff(string msg, int256 value);
 
     // ###################################################################################################################
     // ########################## end of testing area ####################################################################
@@ -738,8 +747,8 @@ contract Etherex {
         int256 smVolume = 0;
         address user;
         uint256 userId;
-    
-        ShowDiff(diff);
+        log("in in endSettle");
+        ShowDiff("difference",diff);
         
         if (diff >= 0) {
             for (uint256 i = 0; i<settleMapping[_period].bidSmData.length; i++) {   
@@ -760,8 +769,8 @@ contract Etherex {
         }
     
         smVolume = 0;
-    
-        if (diff <= 0) {
+        
+        if (diff < 0) {
             diff = -1 * diff;
             for (uint256 j = 0;j<settleMapping[_period].askSmData.length;j++) {
                     log("is in for loop with negative diff"); 
@@ -781,19 +790,15 @@ contract Etherex {
         }
     
         int256 moneyLeft = 0;
-        for (uint256 k=0; k<currentUserId-1; k++) {
-            if (userType[k] == 1 || userType[k] == 2) {
-                moneyLeft += colleteral[k];
-            }
+        for (uint256 k=0; k<numUsers; k++) {
+            moneyLeft += colleteral[k];   
         }
-        ShowDiff(moneyLeft);
+        ShowDiff("moneyLeft",moneyLeft);
         int256 shareOfEachUser = moneyLeft / int256(numUsers);
         shareOfEachUser = shareOfEachUser * -1;
-        ShowDiff(shareOfEachUser);
-        for (uint256 l=0; l<currentUserId-1; l++) {
-            if (userType[l] == 1 || userType[l] == 2) {
-                colleteral[l] += shareOfEachUser;
-            }
+        ShowDiff("shareOfEachUser",shareOfEachUser);
+        for (uint256 l=0; l<numUsers; l++) {  
+            colleteral[l] += shareOfEachUser;     
         }
     }
 
@@ -838,7 +843,32 @@ contract Etherex {
         }
         return (askQuotes, askAmounts);
     }
+    function isMatchedForBidReserve(address _user,uint256 _period) constant returns (bool){
+        if (matchedBidReserveOrders[_period][_user] != 0){
+            return true;
+        } else {
+            return false;
+        }
+    }
 
+    function isMatchedForAskReserve(address _user,uint256 _period) constant returns (bool){
+        if (matchedAskReserveOrders[_period][_user] != 0){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function getCurrentPeriod() constant returns(uint256){
+        return currentPeriod;
+    }
+    function getBidReservePrice(uint256 _period) constant returns(int256){
+        return bidReservePrices[_period];
+    }
+    function getAskReservePrice(uint256 _period) constant returns(int256){
+        return askReservePrices[_period];   
+    }
+    
     function getOrderId(uint256 _orderId) constant returns(uint256) {
         return orders[_orderId].id;
     }
@@ -884,29 +914,54 @@ contract Etherex {
         return settleMapping[_period].sumConsumed;
     }
 
+
     function getSumProduced(uint256 _period) constant returns(uint256) {
         return settleMapping[_period].sumProduced;
     }
 
     function getSumOfColleteral() constant returns(int256) {
         int256 sum = 0;
-        for (uint256 i=0; i<currentUserId-1; i++) {
+        for (uint256 i=0; i<numUsers; i++) {
             sum += colleteral[i];
         }
         return sum;
     }
 
-    function getEnergyBalance(uint256 _period) constant returns(uint256) {
+    function getReserveBidEnergy(uint256 _period) constant returns(uint256){
         uint256 sumReserveConsumed = 0;
         for (uint256 i=0; i<settleMapping[_period].bidSmData.length; i++) {
             sumReserveConsumed += settleMapping[_period].bidSmData[i].smVolume;
         }
-        uint256 sumReserveProduced = 0;
+        return sumReserveConsumed;
+    }
+
+    function getNumberOfUser() constant returns(uint256){
+        return numUsers;
+    }
+
+    function getReserveAskEnergy(uint256 _period) constant returns(uint256){
+       uint256 sumReserveProduced = 0;
         for (uint256 j=0; j<settleMapping[_period].askSmData.length; j++) {
             sumReserveProduced += settleMapping[_period].askSmData[j].smVolume;
         }
-        return (settleMapping[_period].sumConsumed + sumReserveConsumed) 
-            - (settleMapping[_period].sumProduced + sumReserveProduced);
+        return sumReserveProduced;
+    }
+
+    // function getEnergyBalance(uint256 _period) constant returns(uint256) {
+    //     uint256 sumReserveConsumed = 0;
+    //     for (uint256 i=0; i<settleMapping[_period].bidSmData.length; i++) {
+    //         sumReserveConsumed += settleMapping[_period].bidSmData[i].smVolume;
+    //     }
+    //     uint256 sumReserveProduced = 0;
+    //     for (uint256 j=0; j<settleMapping[_period].askSmData.length; j++) {
+    //         sumReserveProduced += settleMapping[_period].askSmData[j].smVolume;
+    //     }
+    //     return ((settleMapping[_period].lack + sumReserveConsumed) 
+    //         - (settleMapping[_period].sumProduced + sumReserveProduced));
+    // }
+
+    function getEnergyBalance(uint256 _period) constant returns(uint256){
+        return settleMapping[_period].sumProduced-settleMapping[_period].sumConsumed;
     }
 
     function reset() {
