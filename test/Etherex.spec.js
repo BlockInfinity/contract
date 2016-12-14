@@ -353,6 +353,8 @@ contract('Etherex', function(accounts) {
     describe('settle order', function() {
 
         var priceMultiplier = 100;
+        var reserveBidPriceMultiplier = 50;
+        var reserveAskPriceMultiplier = 100;
         var volumeMultiplier = 100;
 
         it.skip('no energy excess/lack, users stick to their orders - should work', function() {
@@ -400,8 +402,9 @@ contract('Etherex', function(accounts) {
             })).not.to.be.rejected;
         });
 
-        it('energy excess regulated by one reserve order issuer - should work', function() {
+        it.skip('energy lack/excess regulated by one reserve order issuer - should work', function() {
             return expect(co(function*() {
+
 
                 // Emit normal orders 
                 for (var i = 0; i < 10; i++) {
@@ -435,7 +438,6 @@ contract('Etherex', function(accounts) {
 
 
                 // SETTLEMENT
-
                 var diff;
                 var smVolume;
                 var collateral;
@@ -482,7 +484,7 @@ contract('Etherex', function(accounts) {
                     collateral = 0;
 
                     //consumed too much
-                    if (i < 8) {
+                    if (i < 9) {
                         smVolume = volume + diff;
                         lack += diff;
                         sumConsumed += smVolume;
@@ -505,6 +507,8 @@ contract('Etherex', function(accounts) {
 
                 assert.equal((yield etherex.getExcess.call(0)).toNumber(), excess);
                 assert.equal((yield etherex.getLack.call(0)).toNumber(), lack);
+
+                console.log("sumProduced - sumConsumed: ", sumProduced - sumConsumed);
 
                 assert.equal((yield etherex.getSumProduced.call(0)).toNumber(), sumProduced);
                 assert.equal((yield etherex.getSumConsumed.call(0)).toNumber(), sumConsumed);
@@ -530,7 +534,7 @@ contract('Etherex', function(accounts) {
                     }
                 }
 
-
+                console.log("reserve ask energy: ", yield etherex.getAllReserveAskEnergy(0));
                 // every single smart meter needs to call the settle function before endSettle function is executed
                 for (var i = 0; i < consumers.length; i++) {
                     yield etherex.settle(consumers[i], 2, 0, 0, { from: consumers[i] });
@@ -553,28 +557,146 @@ contract('Etherex', function(accounts) {
             })).not.to.be.rejected;
         });
 
-        it.skip('energy lack regulated by one reserve order issuer - should work', function() {
-            return expect(co(function*() {
-
-            })).not.to.be.rejected;
-        });
-
         it.skip('energy lack/excess regulated by more than one reserve order issuer - should work', function() {
             return expect(co(function*() {
 
             })).not.to.be.rejected;
         });
 
-        it.skip('users trade without having emitted any orders - should work', function() {
-            return expect(co(function*() {
 
+        it('users consume/produce randomly without having emitted any orders at all - should work', function() {
+            return expect(co(function*() {
+                var events = etherex.allEvents();
+
+                yield etherex.nextState();
+
+                var matchingPrice = yield etherex.getMatchingPrices.call(0);
+                assert.equal(matchingPrice.toNumber(), Math.pow(2, 128) - 1);
+
+                // Emit Reserve Orders
+                for (var i = 0; i < 10; i++) {
+                    yield etherex.submitBid(100 + i * reserveBidPriceMultiplier, 100 + (9 - i) * volumeMultiplier, { from: reserveConsumers[i] });
+                }
+                for (var i = 0; i < 10; i++) {
+                    yield etherex.submitAsk(500 + i * reserveAskPriceMultiplier, 100 + i * volumeMultiplier, { from: reserveProducers[i] });
+                }
+
+                yield etherex.nextState();
+
+                var bidReservePrice = yield etherex.getBidReservePrice.call(0);
+
+                var askReservePrice = yield etherex.getAskReservePrice.call(0);
+
+
+                assert(bidReservePrice < askReservePrice, "ask price is not greater than bid price");
+
+                // SETTLEMENT
+                var diff;
+                var smVolume;
+                var collateral;
+                var bidReservePrice;
+                var askReservePrice;
+
+                var excess = 0;
+                var lack = 0;
+                var sumConsumed = 0;
+                var sumProduced = 0;
+
+
+                for (var i = 0; i < consumers.length; i++) {
+                    smVolume = Math.round(Math.random() * 1000);
+                    yield etherex.settle(consumers[i], 2, smVolume, 0, { from: consumers[i] });
+                    sumConsumed += smVolume;
+                    lack += smVolume;
+                    collateral = yield etherex.getCollateral(consumers[i]);
+                    askReservePrice = yield etherex.getAskReservePrice(0);
+
+                    assert.equal(collateral, -smVolume * askReservePrice);
+                }
+                for (var i = 0; i < producers.length; i++) {
+                    smVolume = Math.round(Math.random() * 1000);
+                    yield etherex.settle(producers[i], 1, smVolume, 0, { from: producers[i] });
+                    sumProduced += smVolume;
+                    excess += smVolume;
+                    collateral = yield etherex.getCollateral(producers[i]);
+                    bidReservePrice = yield etherex.getBidReservePrice(0);
+
+                    assert.equal(collateral, smVolume * bidReservePrice);
+                }
+
+                assert.equal((yield etherex.getExcess.call(0)).toNumber(), excess, "excess");
+                assert.equal((yield etherex.getLack.call(0)).toNumber(), lack, "lack");
+
+                assert.equal((yield etherex.getSumProduced.call(0)).toNumber(), sumProduced);
+                assert.equal((yield etherex.getSumConsumed.call(0)).toNumber(), sumConsumed);
+
+
+                var chosenAskReserveUser = 0;
+                var chosenBidReserveUser = 0;
+
+                // one reserve order user regulates the lack or excess 
+                if (sumProduced != sumConsumed) {
+                    if (sumProduced > sumConsumed) {
+                        var diff = sumProduced - sumConsumed;
+                        for (var i = 0; i < reserveConsumers.length; i++) {
+                            if (yield etherex.isMatchedForBidReserve(reserveConsumers[i], 0)) {
+                                yield etherex.settle(reserveConsumers[i], 2, diff, 0, { from: reserveConsumers[i] });
+                                chosenBidReserveUser = reserveConsumers[i];
+                                break;
+                            }
+                        }
+                    } else {
+                        var diff = sumConsumed - sumProduced;
+                        for (var i = 0; i < reserveProducers.length; i++) {
+                            if (yield etherex.isMatchedForAskReserve(reserveProducers[i], 0)) {
+                                yield etherex.settle(reserveProducers[i], 1, diff, 0, { from: reserveProducers[i] });
+                                chosenAskReserveUser = reserveProducers[i];
+                                break;
+                            }
+                        }
+                    }
+                }
+
+
+                var energyBalance = yield etherex.getEnergyBalance.call(0);
+                assert.equal(energyBalance.toNumber(), 0, "energy balance should be zero, then the reserve order issuing was successfull");
+
+
+                for (var i = 0; i < reserveProducers.length; i++) {
+                    yield etherex.settle(reserveProducers[i], 1, 0, 0, { from: reserveProducers[i] });
+                }
+                for (var i = 0; i < reserveConsumers.length; i++) {
+                    yield etherex.settle(reserveConsumers[i], 1, 0, 0, { from: reserveConsumers[i] });
+                }
+
+                var sumOfCollateral = (yield etherex.getSumOfColleteral()).toNumber();
+
+                var collBidReserve = (yield etherex.getCollateral(chosenBidReserveUser)).toNumber();
+                var collAskReserve = (yield etherex.getCollateral(chosenAskReserveUser)).toNumber();
+                var reserveBidPrice = (yield etherex.getBidReservePrice(0)).toNumber();
+                var reserveAskPrice = (yield etherex.getAskReservePrice(0)).toNumber();
+                var shareOfEachUser = (yield etherex.getShare()).toNumber();
+
+                if (collBidReserve != shareOfEachUser) {
+                    assert.equal(collBidReserve, -1 * (sumProduced - sumConsumed) * reserveBidPrice + shareOfEachUser, "colleteral bid")
+                }
+                if (collAskReserve != shareOfEachUser) {
+                    assert.equal(collAskReserve, (sumConsumed - sumProduced) * reserveAskPrice + shareOfEachUser, "colleteral ask")
+                }
+
+                var energyBalance = yield etherex.getEnergyBalance.call(0);
+                assert.equal(energyBalance.toNumber(), 0);
+                var sumOfCollateral = yield etherex.getSumOfColleteral.call();
+                chai.assert.closeTo(sumOfCollateral.toNumber(), 0, 100, "collateral should be close to zero"); // closeTo due to numeric errors
             })).not.to.be.rejected;
         });
+
 
         it.skip('no order emitted - should work', function() {
             return expect(co(function*() {
 
             })).not.to.be.rejected;
         });
+
     });
 });

@@ -285,11 +285,11 @@ contract Etherex {
         // return if no orders or no match possible since minAsk greater than maxBid
         if (orders.length == 1) {
             matchingPrices[currentPeriod] = 2**128-1;
-            return false;
+            return true;
         }
         if (minAsk == 0 || maxBid == 0 || (orders[minAsk].price > orders[maxBid].price)) {
             matchingPrices[currentPeriod] = 2**128-1;
-            return false;
+            return true;
         }
 
         uint256 cumAskVol = 0;
@@ -742,6 +742,12 @@ contract Etherex {
     // ########################## end of testing area ####################################################################
     // ###################################################################################################################
 
+    function getShare() constant returns(int256){
+        return(shareOfEachUser);
+    }
+
+    int256 shareOfEachUser; 
+
     function endSettle(uint256 _period) internal {
         int256 diff = int256(settleMapping[_period].excess) - int256(settleMapping[_period].lack);
         int256 smVolume = 0;
@@ -772,11 +778,13 @@ contract Etherex {
         
         if (diff < 0) {
             diff = -1 * diff;
-            for (uint256 j = 0;j<settleMapping[_period].askSmData.length;j++) {
-                    log("is in for loop with negative diff"); 
-                    smVolume = int256(settleMapping[_period].askSmData[i].smVolume);
+            ShowDiff("DIFF: ",diff);
+            for (uint256 j = 0;j<settleMapping[_period].askSmData.length;j++) {           
+                    smVolume = int256(settleMapping[_period].askSmData[j].smVolume);
+                    ShowDiff("smVolume in ASK: ",smVolume);
                     if (smVolume == 0) continue;
-                    user = settleMapping[_period].askSmData[i].user;
+                    log("is in for loop with negative diff"); 
+                    user = settleMapping[_period].askSmData[j].user;
                     userId = identities[user];
                     if (smVolume <= diff) {
                         colleteral[userId] += smVolume * askReservePrices[_period];
@@ -794,8 +802,9 @@ contract Etherex {
             moneyLeft += colleteral[k];   
         }
         ShowDiff("moneyLeft",moneyLeft);
-        int256 shareOfEachUser = moneyLeft / int256(numUsers);
+        shareOfEachUser = moneyLeft / int256(numUsers);
         shareOfEachUser = shareOfEachUser * -1;
+        
         ShowDiff("shareOfEachUser",shareOfEachUser);
         for (uint256 l=0; l<numUsers; l++) {  
             colleteral[l] += shareOfEachUser;     
@@ -927,7 +936,7 @@ contract Etherex {
         return sum;
     }
 
-    function getReserveBidEnergy(uint256 _period) constant returns(uint256){
+    function getAllReserveBidEnergy(uint256 _period) constant returns(uint256){
         uint256 sumReserveConsumed = 0;
         for (uint256 i=0; i<settleMapping[_period].bidSmData.length; i++) {
             sumReserveConsumed += settleMapping[_period].bidSmData[i].smVolume;
@@ -939,12 +948,20 @@ contract Etherex {
         return numUsers;
     }
 
-    function getReserveAskEnergy(uint256 _period) constant returns(uint256){
+    function getAllReserveAskEnergy(uint256 _period) constant returns(uint256){
        uint256 sumReserveProduced = 0;
         for (uint256 j=0; j<settleMapping[_period].askSmData.length; j++) {
             sumReserveProduced += settleMapping[_period].askSmData[j].smVolume;
         }
         return sumReserveProduced;
+    }
+
+    function getReserveAskEnergy(uint256 _period, address _user) constant returns(uint256) {
+        return matchedAskReserveOrders[_period][_user];
+    }
+
+    function getReserveBidEnergy(uint256 _period, address _user) constant returns(uint256) {
+        return matchedBidReserveOrders[_period][_user];
     }
 
     // function getEnergyBalance(uint256 _period) constant returns(uint256) {
