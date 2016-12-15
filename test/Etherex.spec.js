@@ -21,6 +21,12 @@ contract('Etherex', function(accounts) {
     var reserveProducers;
     var reserveConsumers;
 
+    var priceMultiplier;
+    var reserveBidPriceMultiplier;
+    var reserveAskPriceMultiplier;
+    var volumeMultiplier;
+
+
     beforeEach(function() {
         return co(function*() {
             // default account
@@ -33,14 +39,18 @@ contract('Etherex', function(accounts) {
             producers = accounts.slice(0, 0.25 * accounts.length);
             // consumers
             consumers = accounts.slice(0.25 * accounts.length, 0.5 * accounts.length);
-            // reserve procuders 
+            // reserve producers 
             reserveProducers = accounts.slice(0.5 * accounts.length, 0.75 * accounts.length);
             // reserve consumers
             reserveConsumers = accounts.slice(0.75 * accounts.length, accounts.length);
 
 
-            // set up etherex
-            etherex = Etherex.deployed();
+            priceMultiplier = 100;
+            reserveBidPriceMultiplier = 50;
+            reserveAskPriceMultiplier = 100;
+            volumeMultiplier = 100;
+            etherex = yield Etherex.new();
+
 
             assert(certificateAuthorities[0]);
             yield etherex.registerCertificateAuthority(certificateAuthorities[0], { from: accounts[0] });
@@ -63,12 +73,14 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    describe.skip('register certificate authorities and producers', function() {
+    describe('REGISTER CERTIFICATE AUTHORITIES AND PRODUCERS', function() {
         it('The contract should be deployed to the blockchain', function(done) {
             assert(etherex);
             done();
         });
+    });
 
+    describe('REGISTER CERTIFICATE AUTHORITIES AND PRODUCERS', function() {
         it('register certificate authorities - should work', function() {
             return expect(co(function*() {
                 assert(accounts[0]);
@@ -78,7 +90,9 @@ contract('Etherex', function(accounts) {
                 }
             })).not.to.be.rejected;
         });
+    });
 
+    describe('REGISTER CERTIFICATE AUTHORITIES AND PRODUCERS', function() {
         it('register producer by certificate authority - should work', function() {
             return expect(co(function*() {
                 assert(certificateAuthorities[0]);
@@ -87,7 +101,10 @@ contract('Etherex', function(accounts) {
                 yield etherex.registerProducer(producers[0], { from: certificateAuthorities[0] });
             })).not.to.be.rejected;
         });
+    });
 
+    // todo(mg) fails due to DEBUG flag in modifiers
+    describe('REGISTER CERTIFICATE AUTHORITIES AND PRODUCERS', function() {
         it('register producer by consumer - should not work', function() {
             return expect(co(function*() {
                 yield etherex.registerProducer(producers[0], { from: consumers[0] });
@@ -95,17 +112,16 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    describe.skip('submit orders', function() {
-
-        var priceMultiplier = 100;
-        var volumeMultiplier = 100;
-
+    // todo(mg) fails due to DEBUG flag in modifiers
+    describe('SUBMIT ORDERS', function() {
         it('submit bids by producer - should not work', function() {
             return expect(co(function*() {
                 yield etherex.submitBid(1 * priceMultiplier, 1 * volumeMultiplier, { from: producers[0] });
             })).to.be.rejected;
         });
+    });
 
+    describe('SUBMIT ORDERS', function() {
         it('insert bids with price in ascending order - should work', function() {
             assert(consumers.length >= 10);
             return expect(co(function*() {
@@ -128,6 +144,9 @@ contract('Etherex', function(accounts) {
                 }
             })).not.to.be.rejected;
         });
+    });
+
+    describe('SUBMIT ORDERS', function() {
 
         it('insert bids with price in descending order - should work', function() {
             assert(consumers.length >= 10);
@@ -151,12 +170,19 @@ contract('Etherex', function(accounts) {
                 }
             })).not.to.be.rejected;
         });
+    });
 
+    // todo(mg) fails due to DEBUG flag in modifiers
+    describe('SUBMIT ORDERS', function() {
         it('submit asks by consumer - should not work', function() {
             return expect(co(function*() {
                 yield etherex.submitAsk(1 * priceMultiplier, 1 * volumeMultiplier, { from: consumers[0] });
             })).to.be.rejected;
         });
+
+    });
+
+    describe('SUBMIT ORDERS', function() {
 
         it('insert asks with price in ascending order - should work', function() {
             assert(producers.length >= 10);
@@ -181,6 +207,10 @@ contract('Etherex', function(accounts) {
             })).not.to.be.rejected;
         });
 
+    });
+
+    describe('SUBMIT ORDERS', function() {
+
         it('insert bids with price in descending order - should work', function() {
             assert(producers.length >= 10);
             return expect(co(function*() {
@@ -205,8 +235,8 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    describe.skip('match bid and ask orders', function() {
-
+    // todo(mg) fails
+    describe('MATCH BID AND ASK ORDERS', function() {
         var priceMultiplier = 100;
         var volumeMultiplier = 100;
 
@@ -219,7 +249,7 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    describe.skip('match bid and ask orders', function() {
+    describe('MATCH BID AND ASK ORDERS', function() {
 
         var priceMultiplier = 100;
         var volumeMultiplier = 100;
@@ -239,7 +269,7 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    describe.skip('match bid and ask orders', function() {
+    describe('MATCH BID AND ASK ORDERS', function() {
 
         var priceMultiplier = 100;
         var volumeMultiplier = 100;
@@ -270,7 +300,7 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    describe.skip('match bid and ask orders', function() {
+    describe('MATCH BID AND ASK ORDERS', function() {
 
         var priceMultiplier = 100;
         var volumeMultiplier = 100;
@@ -299,8 +329,8 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    // todo(ms): will probably fail due to changes in contract
-    describe.skip('determine reserve bid and ask prices', function() {
+    // todo(ms): will probably fail due to changes in contract. 
+    describe.skip('DETERMINE RESERVE BID AND ASK PRICES', function() {
 
         var priceMultiplier = 100;
         var volumeMultiplier = 100;
@@ -350,14 +380,10 @@ contract('Etherex', function(accounts) {
         });
     });
 
-    describe('settle order', function() {
 
-        var priceMultiplier = 100;
-        var reserveBidPriceMultiplier = 50;
-        var reserveAskPriceMultiplier = 100;
-        var volumeMultiplier = 100;
 
-        it.skip('no energy excess/lack, users stick to their orders - should work', function() {
+    describe("SETTLEMENT", function() {
+        it('no energy excess/lack, users stick to their orders - should work', function() {
             return expect(co(function*() {
                 for (var i = 0; i < 10; i++) {
                     yield etherex.submitBid(100 + i * priceMultiplier, 100 + i * volumeMultiplier, { from: consumers[i] });
@@ -402,7 +428,11 @@ contract('Etherex', function(accounts) {
             })).not.to.be.rejected;
         });
 
-        it.skip('energy lack/excess regulated by one reserve order issuer - should work', function() {
+    });
+
+
+    describe("SETTLEMENT", function() {
+        it('energy lack/excess regulated by one reserve order issuer - should work', function() {
             return expect(co(function*() {
 
 
@@ -508,8 +538,6 @@ contract('Etherex', function(accounts) {
                 assert.equal((yield etherex.getExcess.call(0)).toNumber(), excess);
                 assert.equal((yield etherex.getLack.call(0)).toNumber(), lack);
 
-                console.log("sumProduced - sumConsumed: ", sumProduced - sumConsumed);
-
                 assert.equal((yield etherex.getSumProduced.call(0)).toNumber(), sumProduced);
                 assert.equal((yield etherex.getSumConsumed.call(0)).toNumber(), sumConsumed);
 
@@ -534,8 +562,8 @@ contract('Etherex', function(accounts) {
                     }
                 }
 
-                console.log("reserve ask energy: ", yield etherex.getAllReserveAskEnergy(0));
                 // every single smart meter needs to call the settle function before endSettle function is executed
+
                 for (var i = 0; i < consumers.length; i++) {
                     yield etherex.settle(consumers[i], 2, 0, 0, { from: consumers[i] });
                 }
@@ -556,17 +584,13 @@ contract('Etherex', function(accounts) {
                 chai.assert.closeTo(sumOfCollateral.toNumber(), 0, 50, "collateral should be close to zero"); // closeTo due to numeric errors
             })).not.to.be.rejected;
         });
-
-        it.skip('energy lack/excess regulated by more than one reserve order issuer - should work', function() {
-            return expect(co(function*() {
-
-            })).not.to.be.rejected;
-        });
+    });
 
 
+    describe("SETTLEMENT", function() {
         it('users consume/produce randomly without having emitted any orders at all - should work', function() {
             return expect(co(function*() {
-                var events = etherex.allEvents();
+
 
                 yield etherex.nextState();
 
@@ -690,13 +714,23 @@ contract('Etherex', function(accounts) {
                 chai.assert.closeTo(sumOfCollateral.toNumber(), 0, 100, "collateral should be close to zero"); // closeTo due to numeric errors
             })).not.to.be.rejected;
         });
+    });
 
 
-        it.skip('no order emitted - should work', function() {
+    describe.skip("SETTLEMENT", function() {
+        it('no order emitted - should work', function() {
             return expect(co(function*() {
 
             })).not.to.be.rejected;
         });
+    });
 
+
+    describe.skip("SETTLEMENT", function() {
+        it('energy lack/excess regulated by more than one reserve order issuer - should work', function() {
+            return expect(co(function*() {
+
+            })).not.to.be.rejected;
+        });
     });
 });
