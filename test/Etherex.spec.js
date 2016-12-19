@@ -5,7 +5,7 @@ const chai = require('chai');
 const chaiAsPromised = require('chai-as-promised');
 const expect = chai.expect;
 chai.use(chaiAsPromised);
-const assert = require('assert');
+const assert = require("assert");
 
 const eth = web3.eth;
 
@@ -57,21 +57,31 @@ contract('Etherex', function(accounts) {
             for (var i = 0; i < producers.length; i++) {
                 assert(producers[i]);
                 yield etherex.registerProducer(producers[i], { from: certificateAuthorities[0] });
-            }
-            for (var i = 0; i < consumers.length; i++) {
-                assert(consumers[i]);
-                yield etherex.registerConsumer(consumers[i], { from: certificateAuthorities[0] });
-            }
-            for (var i = 0; i < reserveConsumers.length; i++) {
-                assert(reserveConsumers[i]);
-                yield etherex.registerConsumer(reserveConsumers[i], { from: certificateAuthorities[0] });
+                var usertype = (yield etherex.getUserType(producers[i])).toNumber();
+                assert.equal(usertype, 2);
             }
             for (var i = 0; i < reserveProducers.length; i++) {
                 assert(reserveProducers[i]);
                 yield etherex.registerProducer(reserveProducers[i], { from: certificateAuthorities[0] });
+                var usertype = (yield etherex.getUserType(reserveProducers[i])).toNumber();
+                assert.equal(usertype, 2);
+            }
+            for (var i = 0; i < consumers.length; i++) {
+                assert(consumers[i]);
+                yield etherex.registerConsumer(consumers[i], { from: certificateAuthorities[0] });
+                var usertype = (yield etherex.getUserType(consumers[i])).toNumber();
+                assert.equal(usertype, 1);
+            }
+            for (var i = 0; i < reserveConsumers.length; i++) {
+                assert(reserveConsumers[i]);
+                yield etherex.registerConsumer(reserveConsumers[i], { from: certificateAuthorities[0] });
+                var usertype = (yield etherex.getUserType(reserveConsumers[i])).toNumber();
+                assert.equal(usertype, 1);
             }
         });
     });
+
+
 
     describe('REGISTER CERTIFICATE AUTHORITIES AND PRODUCERS', function() {
         it('The contract should be deployed to the blockchain', function(done) {
@@ -259,8 +269,8 @@ contract('Etherex', function(accounts) {
                 for (var i = 0; i < 10; i++) {
                     yield etherex.submitBid(100 + i * priceMultiplier, 100 + i * volumeMultiplier, { from: consumers[i] });
                 }
-                for (var i = 10; i < 20; i++) {
-                    yield etherex.submitAsk(100 + i * priceMultiplier, 100 + i * volumeMultiplier, { from: producers[i] });
+                for (var i = 0; i < 10; i++) {
+                    yield etherex.submitAsk(1100 + i * priceMultiplier, 100 + i * volumeMultiplier, { from: producers[i] });
                 }
                 yield etherex.nextState();
                 var matchingPrice = yield etherex.getMatchingPrices.call(0);
@@ -392,6 +402,8 @@ contract('Etherex', function(accounts) {
                     yield etherex.submitAsk(100 + i * priceMultiplier, 100 + i * volumeMultiplier, { from: producers[i] });
                 }
 
+
+
                 yield etherex.nextState();
 
                 var matchingPrice = yield etherex.getMatchingPrices.call(0);
@@ -401,30 +413,36 @@ contract('Etherex', function(accounts) {
 
                 yield etherex.nextState();
 
-                for (var i = 0; i < 8; i++) {
+                var sumproduced = 0; 
+                for (var i = 0; i <= 7; i++) {
                     var volume = yield etherex.getMatchedAskOrders.call(0, producers[i]);
+                    sumproduced += volume.toNumber();
                     yield etherex.settle(producers[i], 1, volume.toNumber(), 0, { from: producers[i] });
                     var collateral = yield etherex.getCollateral.call(producers[i]);
                     assert.equal(collateral.toNumber(), volume.toNumber() * matchingPrice.toNumber());
                 }
+
+                var sumconsumed = 0;
                 for (var i = 7; i < 10; i++) {
                     var volume = yield etherex.getMatchedBidOrders.call(0, consumers[i]);
+                    sumconsumed += volume.toNumber();
                     yield etherex.settle(consumers[i], 2, volume.toNumber(), 0, { from: consumers[i] });
                     var collateral = yield etherex.getCollateral.call(consumers[i]);
                     assert.equal(collateral.toNumber(), -volume.toNumber() * matchingPrice.toNumber());
                 }
+
                 var excess = yield etherex.getExcess.call(0);
-                assert.equal(excess.toNumber(), 0);
+                assert.equal(excess.toNumber(), 0,"excess not null");
                 var lack = yield etherex.getLack.call(0);
-                assert.equal(lack.toNumber(), 0);
+                assert.equal(lack.toNumber(), 0,"lack not null");
                 var sumProduced = yield etherex.getSumProduced.call(0);
                 assert.equal(sumProduced.toNumber(), 2700);
                 var sumConsumed = yield etherex.getSumConsumed.call(0);
                 assert.equal(sumConsumed.toNumber(), 2700);
                 var sumOfCollateral = yield etherex.getSumOfColleteral.call();
-                assert.equal(sumOfCollateral.toNumber(), 0);
+                assert.equal(sumOfCollateral.toNumber(), 0,"collateral not null");
                 var energyBalance = yield etherex.getEnergyBalance.call(0);
-                assert.equal(energyBalance.toNumber(), 0);
+                assert.equal(energyBalance.toNumber(), 0,"energy balance not null");
             })).not.to.be.rejected;
         });
 
@@ -581,7 +599,7 @@ contract('Etherex', function(accounts) {
                 assert.equal(energyBalance.toNumber(), 0);
 
                 var sumOfCollateral = yield etherex.getSumOfColleteral.call();
-                chai.assert.closeTo(sumOfCollateral.toNumber(), 0, 50, "collateral should be close to zero"); // closeTo due to numeric errors
+                chai.assert.closeTo(sumOfCollateral.toNumber(), 0, 100, "collateral should be close to zero"); // closeTo due to numeric errors
             })).not.to.be.rejected;
         });
     });
@@ -718,7 +736,7 @@ contract('Etherex', function(accounts) {
 
 
     describe.skip("SETTLEMENT", function() {
-        it('no order emitted - should work', function() {
+        it('no orders emitted - should work', function() {
             return expect(co(function*() {
 
             })).not.to.be.rejected;

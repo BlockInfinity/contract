@@ -3,7 +3,7 @@ pragma solidity ^0.4.2;
 contract Etherex {
 
     // turns off modifiers 
-    bool DEBUG = true;
+    bool DEBUG = false;
 
     // ########################## Variables for user management  #########################################################
 
@@ -11,7 +11,7 @@ contract Etherex {
     mapping(uint256 => int256) colleteral;
     mapping(address => uint256) identities;
     // 1: CA, 2: producer, 3: consumer  
-    uint8[] userType;
+    uint256[] userType;
     uint256 currentUserId;
     uint256 numUsers;
 
@@ -77,16 +77,17 @@ contract Etherex {
     // ########################## Modifiers ##############################################################################
     // ###################################################################################################################
 
+    // todo modifiers do not work as expected
     modifier onlyCertificateAuthorities() {
         if (userType[identities[msg.sender]] != 0 && !DEBUG) throw;
         _;
     }
     modifier onlyProducers() {
-        if (userType[identities[msg.sender]] != 1 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 2 && !DEBUG) throw;
         _;
     }
     modifier onlyConsumers() {
-        if (userType[identities[msg.sender]] != 2 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 1 && !DEBUG) throw;
         _;
     }
 
@@ -112,6 +113,7 @@ contract Etherex {
     // ########################## Registration  ##########################################################################
     // ###################################################################################################################
 
+
     function registerCertificateAuthority(address _user) {
         identities[_user] = currentUserId++;
         userType.push(0);
@@ -119,13 +121,13 @@ contract Etherex {
 
     function registerProducer(address _user) onlyCertificateAuthorities() {
         identities[_user] = currentUserId++;
-        userType.push(1);
+        userType.push(2);
         numUsers++;
     }
 
     function registerConsumer(address _user) onlyCertificateAuthorities() {
         identities[_user] = currentUserId++;
-        userType.push(2);
+        userType.push(1);
         numUsers++;
     }
 
@@ -541,13 +543,14 @@ contract Etherex {
 
    
     // Settlement function called by smart meter
-    // _type=2 for Consumer and _type=1 for Producer
+    // _type=2 for Producer and _type=1 for Consumer
     // for debug purposes not included 
-    function settle(address _user, int8 _type, uint256 _volume, uint256 _period) onlyProducers() onlyConsumers() {
-        if (!(_type == 1 || _type == 2)) {
-            log("neither producer nor consumer");
-            return;
-        }
+    function settle(address _user, int8 _type, uint256 _volume, uint256 _period) /*onlyProducers() onlyConsumers()*/ {
+        // todo (mg): is redundant because of modifer
+        // if (!(_type == 1 || _type == 2)) {
+        //     log("neither producer nor consumer");
+        //     return;
+        // }
         // currentPeriod needs to be greater than the _period that should be settled 
         // if (!(currentPeriod > _period)) {
         //     log("period already settled");
@@ -866,6 +869,11 @@ contract Etherex {
         } else {
             return false;
         }
+    }
+
+
+    function getUserType(address _user) constant returns(uint256) {
+        return userType[identities[_user]];
     }
 
     function getCurrentPeriod() constant returns(uint256){
