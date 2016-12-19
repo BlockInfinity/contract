@@ -30,6 +30,13 @@ contract Etherex {
         uint256 volume;
         int256 price;
     }
+
+    struct ReserveOrder {
+        uint256 id;
+        uint256 next;
+        uint256 volume;
+    }
+
     // contains all orders 
     Order[] orders;
     // pointers to the best prices 
@@ -88,6 +95,10 @@ contract Etherex {
     }
     modifier onlyConsumers() {
         if (userType[identities[msg.sender]] != 1 && !DEBUG) throw;
+        _;
+    }
+    modifier onlyUsers() {
+        if (userType[identities[msg.sender]] != 1 && userType[identities[msg.sender]] != 2 && !DEBUG) throw;
         _;
     }
 
@@ -198,7 +209,7 @@ contract Etherex {
     }
 
     // ###################################################################################################################
-    // ########################## user interace  #########################################################################
+    // ########################## user interface  #########################################################################
     // ###################################################################################################################
 
     function submitBid(int256 _price, uint256 _volume) onlyConsumers() {
@@ -459,67 +470,7 @@ contract Etherex {
     // ########################## testing area  ##########################################################################
     // ###################################################################################################################
 
-    // function test_settle_AskReserve(){
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchedAskReserveOrders[currentPeriod][_user] = 100;
-    //     settle(2,200,currentPeriod++);
-    // }          
-
-    // function test_settle_AskNormal(){
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     matchedAskOrders[currentPeriod][_user] = 100;
-    //     settle(2,100,currentPeriod++);          
-    // }  
-
-    // function test_settle_NoAskOrderEmitted(){g
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     settle(2,100,currentPeriod++);          
-    // }  
-
-    // function test_settle_BidReserve(){
-    //     registerSmartMeter(address(123),address(123));
-    //     address _user = address(123);
-    //     currentPeriod = 1;
-    //     matchedBidReserveOrders[currentPeriod][_user] = 100;
-    //     settle(address(123),1,200,currentPeriod++);      
-    // }       
-
-    // function test_settle_BidNormal(){
-    //     registerSmartMeter(address(123),address(123));
-    //     address _user = address(123);
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     matchedBidOrders[currentPeriod][_user] = 100;
-    //     settle(address(123),1,200,currentPeriod++);          
-    // }  
-
-    // function test_settle_NoBidOrderEmitted(){
-    //     registerSmartMeter(address(123),address(123));
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     settle(address(123),1,100,currentPeriod++);          
-    // }  
-
-
-
+ 
     event InAskReserve(uint256 , uint256 );
     event InAskNormal(int256, uint256, uint256,int256);
     event InNoAskOrder(int256, uint256, uint256,int256);
@@ -542,20 +493,15 @@ contract Etherex {
     // ###################################################################################################################
 
    
-    // Settlement function called by smart meter
+    // todo (mg) function needs to be called by smart meters instead of users
     // _type=2 for Producer and _type=1 for Consumer
-    // for debug purposes not included 
-    function settle(address _user, int8 _type, uint256 _volume, uint256 _period) /*onlyProducers() onlyConsumers()*/ {
-        // todo (mg): is redundant because of modifer
-        // if (!(_type == 1 || _type == 2)) {
-        //     log("neither producer nor consumer");
-        //     return;
-        // }
+    function settle( int8 _type, uint256 _volume, uint256 _period) onlyUsers() {
+
+        address _user = msg.sender;
         // currentPeriod needs to be greater than the _period that should be settled 
-        // if (!(currentPeriod > _period)) {
-        //     log("period already settled");
-        //     return;    
-        // }
+        if (!(currentPeriod > _period)) {
+            return;    
+        }
 
         // smart meter has already sent data for this particular user
         if (settleMapping[_period].alreadySettled[_user]) {
@@ -721,24 +667,6 @@ contract Etherex {
     // ###################################################################################################################
 
 
-    // function test_endSettle_lack() {
-    //     address consumer = address(123);
-    //     address reserveGuy = address(1234);
-    //     registerSmartMeter(consumer,consumer);
-    //     registerSmartMeter(address(1234),address(1234));
-    //     address _user = address(123);
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     matchedBidOrders[currentPeriod][_user] = 100;
-    //     matchedAskReserveOrders[currentPeriod][reserveGuy]=200;
-    //     currentPeriod++;
-    //     settle(reserveGuy,2,100,1); 
-    //     settle(consumer,1,200,1);         
-    // }  
-
-
     event ShowDiff(string msg, int256 value);
 
     // ###################################################################################################################
@@ -855,6 +783,7 @@ contract Etherex {
         }
         return (askQuotes, askAmounts);
     }
+
     function isMatchedForBidReserve(address _user,uint256 _period) constant returns (bool){
         if (matchedBidReserveOrders[_period][_user] != 0){
             return true;
