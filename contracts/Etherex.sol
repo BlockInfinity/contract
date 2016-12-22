@@ -21,6 +21,9 @@ contract Etherex {
     uint8 currState;
     uint256 startBlock;
 
+    function getStartBlock() constant returns(uint256){
+        return startBlock;
+    }
     // ########################## Variables for saveorder function  #######################################################
 
     struct Order {
@@ -39,6 +42,7 @@ contract Etherex {
 
     // contains all orders 
     Order[] orders;
+
     // pointers to the best prices 
     uint256 minAsk;
     uint256 maxBid;
@@ -120,6 +124,10 @@ contract Etherex {
         orderIdCounter = 1;
     }
 
+    // for testing
+    function resetStartBlockNumber() {
+        startBlock = block.number;
+    }
     // ###################################################################################################################
     // ########################## Registration  ##########################################################################
     // ###################################################################################################################
@@ -147,13 +155,26 @@ contract Etherex {
     // ########################## state management  ######################################################################
     // ###################################################################################################################
 
-    /*
-    !!! executed whenever contract is called !!!  
-    Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
-    inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
-    inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgegeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
-    */
-    // todo(ms): this should be called automatically/internally, now public for testing purposes
+    function init() /*internal*/ {
+        currState = 0;
+        minAsk = 0;
+        maxBid = 0;
+        // reset orders
+        delete orders;
+        Order memory blankOrder = Order(0, 0, 0, 0, 0);
+        orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
+        orderIdCounter = 1;
+        // increment period
+        currentPeriod++;
+        // update start block
+        startBlock = block.number;
+    }
+
+    function getCurrentState() constant returns(uint8){
+        return currState;
+    }
+  
+    //todo(mg): exists for testing, hard switch between states without caring about blocknumber
     function nextState() /* internal */ {
         if (currState == 0) {
             // if matching success, move to state 1
@@ -180,43 +201,56 @@ contract Etherex {
         }
     }
 
-    function init() internal {
-        minAsk = 0;
-        maxBid = 0;
-        // reset orders
-        delete orders;
-        Order memory blankOrder = Order(0, 0, 0, 0, 0);
-        orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
-        orderIdCounter = 1;
-        // increment period
-        currentPeriod++;
-        // update start block
-        startBlock = block.number;
-    }
-  
-    function inStateZero() internal returns (bool rv) {
-        if (block.number < (startBlock + 25)) {
-            return true;
-        }
-        return false;
-    }
+    // only for testing
+    event StateUpdate(uint256 startBlock, uint256 blockNumber, uint256 period, uint256 previousState, uint256 newState);
 
-    function inStateOne() internal returns (bool rv) {
-        if (block.number >= (startBlock + 25) && block.number < (startBlock + 50)) {
-            return true;
+    /*
+        Should be called in every block, called directly from modifier onlyInState.
+        Every third of period lasts for 25 blocks. The period is updated at the 75. block.
+        On the beginning of the 2/3 of the period is matching called.
+    */
+    modifier updateState()  {
+        /*
+            Update state based on current block, no need for 1/3 currentPeriod condition because
+            it is covered with the other 3
+        */
+        if(currState == 0 && ((block.number - startBlock) >= 25 && (block.number - startBlock) < 50)) {
+            //Matching should start
+            matching();
+            minAsk = 0;
+            maxBid = 0;
+            // move on to state 1
+            currState = 1;
+          
+            StateUpdate(startBlock,block.number, currentPeriod, 0 , 1);
+        } else if (currState == 1 && ((block.number - startBlock) >= 50)){
+            //3/3 of the currentPeriod
+            determineReserveAskPrice();
+            determineReserveBidPrice();
+            currState = 0;
+            StateUpdate(startBlock,block.number, currentPeriod, 1 , 0);
+        } else if (currState == 0 && ((block.number - startBlock) >= 75)) {
+            init();    
+            StateUpdate(startBlock, block.number, currentPeriod, 0 , 0);
+        } else {
+            StateUpdate(startBlock, block.number, currentPeriod, currState , currState);
         }
-        return false;
+        _;
+    }
+        
+    function testUpdateState() updateState() {
+        
     }
 
     // ###################################################################################################################
     // ########################## user interface  #########################################################################
     // ###################################################################################################################
 
-    function submitBid(int256 _price, uint256 _volume) onlyConsumers() {
+    function submitBid(int256 _price, uint256 _volume) updateState() onlyConsumers() {
         saveOrder("BID", _price, _volume);
     }
 
-    function submitAsk(int256 _price, uint256 _volume) onlyProducers() {
+    function submitAsk(int256 _price, uint256 _volume) updateState() onlyProducers() {
         saveOrder("ASK", _price, _volume);
     } 
 
@@ -495,7 +529,7 @@ contract Etherex {
    
     // todo (mg) function needs to be called by smart meters instead of users
     // _type=2 for Producer and _type=1 for Consumer
-    function settle( int8 _type, uint256 _volume, uint256 _period) onlyUsers() {
+    function settle( int8 _type, uint256 _volume, uint256 _period) updateState() onlyUsers() {
 
         address _user = msg.sender;
         // currentPeriod needs to be greater than the _period that should be settled 
@@ -673,10 +707,6 @@ contract Etherex {
     // ########################## end of testing area ####################################################################
     // ###################################################################################################################
 
-    function getShare() constant returns(int256){
-        return(shareOfEachUser);
-    }
-
     int256 shareOfEachUser; 
 
     function endSettle(uint256 _period) internal {
@@ -747,6 +777,11 @@ contract Etherex {
     // ########################## READ-ONLY FUNCTIONS ####################################################################
     // ###################################################################################################################
  
+   
+    function getShare() constant returns(int256){
+        return(shareOfEachUser);
+    }
+
     function getOrderIdLastOrder() constant returns(uint256) {
         if (orderIdCounter == 1) {
             return 0;
@@ -916,22 +951,6 @@ contract Etherex {
 
     function getEnergyBalance(uint256 _period) constant returns(uint256){
         return settleMapping[_period].sumProduced-settleMapping[_period].sumConsumed;
-    }
-
-    function reset() {
-        startBlock = block.number;
-        currState = 0;
-        minAsk = 0;
-        maxBid = 0;
-        // reset orders
-        delete orders;
-        Order memory blankOrder = Order(0, 0, 0, 0, 0);
-        orders.push(blankOrder);
-        orderIdCounter = 1;
-        // reset collateral
-        for (uint256 i=0; i<currentUserId-1; i++) {
-            colleteral[i] = 0;
-        }
     }
 
 }
