@@ -12,6 +12,8 @@ const eth = web3.eth;
 const PERCENTAGE_CERTIFICATE_AUTHORITIES = 0.05;
 const PERCENTAGE_PRODUCERS = 0.25;
 
+
+
 contract('Etherex', function(accounts) {
 
     var certificateAuthorities;
@@ -25,6 +27,7 @@ contract('Etherex', function(accounts) {
     var reserveBidPriceMultiplier;
     var reserveAskPriceMultiplier;
     var volumeMultiplier;
+
 
 
     beforeEach(function() {
@@ -50,7 +53,7 @@ contract('Etherex', function(accounts) {
             reserveAskPriceMultiplier = 100;
             volumeMultiplier = 100;
             etherex = yield Etherex.new();
-
+            yield  etherex.setStateManagement(false);
 
             assert(certificateAuthorities[0]);
             yield etherex.registerCertificateAuthority(certificateAuthorities[0], { from: accounts[0] });

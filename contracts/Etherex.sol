@@ -3,7 +3,11 @@ pragma solidity ^0.4.2;
 contract Etherex {
 
     // turns off modifiers 
-    bool DEBUG = false;
+    bool autoState = true;
+
+    function setStateManagement(bool iv){
+        autoState = iv;
+    }
 
     // ########################## Variables for user management  #########################################################
 
@@ -90,19 +94,19 @@ contract Etherex {
 
     // todo modifiers do not work as expected
     modifier onlyCertificateAuthorities() {
-        if (userType[identities[msg.sender]] != 0 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 0) throw;
         _;
     }
     modifier onlyProducers() {
-        if (userType[identities[msg.sender]] != 2 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 2) throw;
         _;
     }
     modifier onlyConsumers() {
-        if (userType[identities[msg.sender]] != 1 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 1) throw;
         _;
     }
     modifier onlyUsers() {
-        if (userType[identities[msg.sender]] != 1 && userType[identities[msg.sender]] != 2 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 1 && userType[identities[msg.sender]] != 2) throw;
         _;
     }
 
@@ -124,10 +128,7 @@ contract Etherex {
         orderIdCounter = 1;
     }
 
-    // for testing
-    function resetStartBlockNumber() {
-        startBlock = block.number;
-    }
+
     // ###################################################################################################################
     // ########################## Registration  ##########################################################################
     // ###################################################################################################################
@@ -176,6 +177,7 @@ contract Etherex {
   
     //todo(mg): exists for testing, hard switch between states without caring about blocknumber
     function nextState() /* internal */ {
+        
         if (currState == 0) {
             // if matching success, move to state 1
             if (matching()) {
@@ -210,34 +212,38 @@ contract Etherex {
         On the beginning of the 2/3 of the period is matching called.
     */
     modifier updateState()  {
-        /*
-            Update state based on current block, no need for 1/3 currentPeriod condition because
-            it is covered with the other 3
-        */
-        if(currState == 0 && ((block.number - startBlock) >= 25 && (block.number - startBlock) < 50)) {
-            //Matching should start
-            matching();
-            minAsk = 0;
-            maxBid = 0;
-            // move on to state 1
-            currState = 1;
-          
-            StateUpdate(startBlock,block.number, currentPeriod, 0 , 1);
-        } else if (currState == 1 && ((block.number - startBlock) >= 50)){
-            //3/3 of the currentPeriod
-            determineReserveAskPrice();
-            determineReserveBidPrice();
-            currState = 0;
-            StateUpdate(startBlock,block.number, currentPeriod, 1 , 0);
-        } else if (currState == 0 && ((block.number - startBlock) >= 75)) {
-            init();    
-            StateUpdate(startBlock, block.number, currentPeriod, 0 , 0);
-        } else {
-            StateUpdate(startBlock, block.number, currentPeriod, currState , currState);
+        // only for testing
+        if (autoState) {            
+            /*
+                Update state based on current block, no need for 1/3 currentPeriod condition because
+                it is covered with the other 3
+            */
+            if(currState == 0 && ((block.number - startBlock) >= 25 && (block.number - startBlock) < 50)) {
+                //Matching should start
+                matching();
+                minAsk = 0;
+                maxBid = 0;
+                // move on to state 1
+                currState = 1;
+              
+                StateUpdate(startBlock,block.number, currentPeriod, 0 , 1);
+            } else if (currState == 1 && ((block.number - startBlock) >= 50)){
+                //3/3 of the currentPeriod
+                determineReserveAskPrice();
+                determineReserveBidPrice();
+                currState = 0;
+                StateUpdate(startBlock,block.number, currentPeriod, 1 , 0);
+            } else if (currState == 0 && ((block.number - startBlock) >= 75)) {
+                init();    
+                StateUpdate(startBlock, block.number, currentPeriod, 0 , 0);
+            } else {
+                StateUpdate(startBlock, block.number, currentPeriod, currState , currState);
+            }
         }
         _;
     }
-        
+      
+    // only for testing purposes to call manually the updateState modifier  
     function testUpdateState() updateState() {
         
     }
@@ -935,19 +941,6 @@ contract Etherex {
     function getReserveBidEnergy(uint256 _period, address _user) constant returns(uint256) {
         return matchedBidReserveOrders[_period][_user];
     }
-
-    // function getEnergyBalance(uint256 _period) constant returns(uint256) {
-    //     uint256 sumReserveConsumed = 0;
-    //     for (uint256 i=0; i<settleMapping[_period].bidSmData.length; i++) {
-    //         sumReserveConsumed += settleMapping[_period].bidSmData[i].smVolume;
-    //     }
-    //     uint256 sumReserveProduced = 0;
-    //     for (uint256 j=0; j<settleMapping[_period].askSmData.length; j++) {
-    //         sumReserveProduced += settleMapping[_period].askSmData[j].smVolume;
-    //     }
-    //     return ((settleMapping[_period].lack + sumReserveConsumed) 
-    //         - (settleMapping[_period].sumProduced + sumReserveProduced));
-    // }
 
     function getEnergyBalance(uint256 _period) constant returns(uint256){
         return settleMapping[_period].sumProduced-settleMapping[_period].sumConsumed;
