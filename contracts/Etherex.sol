@@ -176,7 +176,7 @@ contract Etherex {
     }
   
     //todo(mg): exists for testing, hard switch between states without caring about blocknumber
-    function nextState() /* internal */ {
+    function nextState()  {
         
         if (currState == 0) {
             // if matching success, move to state 1
@@ -430,7 +430,7 @@ contract Etherex {
     }
     
     // determines price till volume of MIN_RESERVE_ASK_VOLUME is accumulated  
-    function determineReserveBidPrice() internal returns(bool) {
+    function determineReserveBidPrice() /*internal*/ returns(bool) {
         if (maxBid == 0) {
             bidReservePrices[currentPeriod] = 2**128-1;
             return false;
@@ -469,7 +469,7 @@ contract Etherex {
     }
 
     // determines price till volume of MIN_RESERVE_BID_VOLUME is accumulated  
-    function determineReserveAskPrice() internal returns(bool) {
+    function determineReserveAskPrice() /*internal*/ returns(bool) {
         if (minAsk == 0) {
             askReservePrices[currentPeriod] = 2**128-1;
             return false;
@@ -539,7 +539,7 @@ contract Etherex {
 
         address _user = msg.sender;
         // currentPeriod needs to be greater than the _period that should be settled 
-        if (!(currentPeriod > _period)) {
+        if (!(currentPeriod > _period) && autoState) {
             return;    
         }
 
