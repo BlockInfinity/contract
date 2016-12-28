@@ -3,7 +3,11 @@ pragma solidity ^0.4.2;
 contract Etherex {
 
     // turns off modifiers 
-    bool DEBUG = true;
+    bool autoState = true;
+
+    function setStateManagement(bool iv){
+        autoState = iv;
+    }
 
     // ########################## Variables for user management  #########################################################
 
@@ -11,7 +15,7 @@ contract Etherex {
     mapping(uint256 => int256) colleteral;
     mapping(address => uint256) identities;
     // 1: CA, 2: producer, 3: consumer  
-    uint8[] userType;
+    uint256[] userType;
     uint256 currentUserId;
     uint256 numUsers;
 
@@ -21,6 +25,9 @@ contract Etherex {
     uint8 currState;
     uint256 startBlock;
 
+    function getStartBlock() constant returns(uint256){
+        return startBlock;
+    }
     // ########################## Variables for saveorder function  #######################################################
 
     struct Order {
@@ -30,8 +37,16 @@ contract Etherex {
         uint256 volume;
         int256 price;
     }
+
+    struct ReserveOrder {
+        uint256 id;
+        uint256 next;
+        uint256 volume;
+    }
+
     // contains all orders 
     Order[] orders;
+
     // pointers to the best prices 
     uint256 minAsk;
     uint256 maxBid;
@@ -77,16 +92,21 @@ contract Etherex {
     // ########################## Modifiers ##############################################################################
     // ###################################################################################################################
 
+    // todo modifiers do not work as expected
     modifier onlyCertificateAuthorities() {
-        if (userType[identities[msg.sender]] != 0 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 0) throw;
         _;
     }
     modifier onlyProducers() {
-        if (userType[identities[msg.sender]] != 1 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 2) throw;
         _;
     }
     modifier onlyConsumers() {
-        if (userType[identities[msg.sender]] != 2 && !DEBUG) throw;
+        if (userType[identities[msg.sender]] != 1) throw;
+        _;
+    }
+    modifier onlyUsers() {
+        if (userType[identities[msg.sender]] != 1 && userType[identities[msg.sender]] != 2) throw;
         _;
     }
 
@@ -108,9 +128,11 @@ contract Etherex {
         orderIdCounter = 1;
     }
 
+
     // ###################################################################################################################
     // ########################## Registration  ##########################################################################
     // ###################################################################################################################
+
 
     function registerCertificateAuthority(address _user) {
         identities[_user] = currentUserId++;
@@ -119,13 +141,13 @@ contract Etherex {
 
     function registerProducer(address _user) onlyCertificateAuthorities() {
         identities[_user] = currentUserId++;
-        userType.push(1);
+        userType.push(2);
         numUsers++;
     }
 
     function registerConsumer(address _user) onlyCertificateAuthorities() {
         identities[_user] = currentUserId++;
-        userType.push(2);
+        userType.push(1);
         numUsers++;
     }
 
@@ -134,14 +156,28 @@ contract Etherex {
     // ########################## state management  ######################################################################
     // ###################################################################################################################
 
-    /*
-    !!! executed whenever contract is called !!!  
-    Annahme: Es wird mindestens eine Order alle 12 Sekunden eingereicht.  
-    inStateZero: Normale Orders können abgegeben werden. Dauer von -1/3*t bis +1/3*t (hier t=15)
-    inStateOne: Nachdem normale orders gematched wurden, können ask orders für die Reserve abgegeben werden. Dauer von 1/3*t bis 2/3*t (hier t=15).
-    */
-    // todo(ms): this should be called automatically/internally, now public for testing purposes
-    function nextState() /* internal */ {
+    function init() /*internal*/ {
+        currState = 0;
+        minAsk = 0;
+        maxBid = 0;
+        // reset orders
+        delete orders;
+        Order memory blankOrder = Order(0, 0, 0, 0, 0);
+        orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
+        orderIdCounter = 1;
+        // increment period
+        currentPeriod++;
+        // update start block
+        startBlock = block.number;
+    }
+
+    function getCurrentState() constant returns(uint8){
+        return currState;
+    }
+  
+    //todo(mg): exists for testing, hard switch between states without caring about blocknumber
+    function nextState()  {
+        
         if (currState == 0) {
             // if matching success, move to state 1
             if (matching()) {
@@ -159,6 +195,7 @@ contract Etherex {
             determineReserveAskPrice();
             determineReserveBidPrice();
             init();
+
             // move on to state 0
             currState = 0;
         } else {
@@ -166,43 +203,60 @@ contract Etherex {
         }
     }
 
-    function init() internal {
-        minAsk = 0;
-        maxBid = 0;
-        // reset orders
-        delete orders;
-        Order memory blankOrder = Order(0, 0, 0, 0, 0);
-        orders.push(blankOrder); // insert blanko order into orders because idx=0 is a placeholder
-        orderIdCounter = 1;
-        // increment period
-        currentPeriod++;
-        // update start block
-        startBlock = block.number;
-    }
-  
-    function inStateZero() internal returns (bool rv) {
-        if (block.number < (startBlock + 25)) {
-            return true;
-        }
-        return false;
-    }
+    // only for testing
+    event StateUpdate(uint256 startBlock, uint256 blockNumber, uint256 period, uint256 previousState, uint256 newState);
 
-    function inStateOne() internal returns (bool rv) {
-        if (block.number >= (startBlock + 25) && block.number < (startBlock + 50)) {
-            return true;
+    /*
+        Should be called in every block, called directly from modifier onlyInState.
+        Every third of period lasts for 25 blocks. The period is updated at the 75. block.
+        On the beginning of the 2/3 of the period is matching called.
+    */
+    modifier updateState()  {
+        // only for testing
+        if (autoState) {            
+            /*
+                Update state based on current block, no need for 1/3 currentPeriod condition because
+                it is covered with the other 3
+            */
+            if(currState == 0 && ((block.number - startBlock) >= 25 && (block.number - startBlock) < 50)) {
+                //Matching should start
+                matching();
+                minAsk = 0;
+                maxBid = 0;
+                // move on to state 1
+                currState = 1;
+              
+                StateUpdate(startBlock,block.number, currentPeriod, 0 , 1);
+            } else if (currState == 1 && ((block.number - startBlock) >= 50)){
+                //3/3 of the currentPeriod
+                determineReserveAskPrice();
+                determineReserveBidPrice();
+                currState = 0;
+                StateUpdate(startBlock,block.number, currentPeriod, 1 , 0);
+            } else if (currState == 0 && ((block.number - startBlock) >= 75)) {
+                init();    
+                StateUpdate(startBlock, block.number, currentPeriod, 0 , 0);
+            } else {
+                StateUpdate(startBlock, block.number, currentPeriod, currState , currState);
+            }
         }
-        return false;
+        _;
+    }
+      
+    // only for testing purposes to call manually the updateState modifier  
+    function testUpdateState() updateState() {
+        
     }
 
     // ###################################################################################################################
-    // ########################## user interace  #########################################################################
+    // ########################## user interface  #########################################################################
     // ###################################################################################################################
 
-    function submitBid(int256 _price, uint256 _volume) onlyConsumers() {
+    function submitBid(int256 _price, uint256 _volume) updateState() onlyConsumers() {
         saveOrder("BID", _price, _volume);
     }
 
-    function submitAsk(int256 _price, uint256 _volume) onlyProducers() {
+    function submitAsk(int256 _price, uint256 _volume) updateState() onlyProducers() {
         saveOrder("ASK", _price, _volume);
     } 
 
@@ -284,11 +338,11 @@ contract Etherex {
         // return if no orders or no match possible since minAsk greater than maxBid
         if (orders.length == 1) {
             matchingPrices[currentPeriod] = 2**128-1;
-            return false;
+            return true;
         }
         if (minAsk == 0 || maxBid == 0 || (orders[minAsk].price > orders[maxBid].price)) {
             matchingPrices[currentPeriod] = 2**128-1;
-            return false;
+            return true;
         }
 
         uint256 cumAskVol = 0;
@@ -376,7 +430,7 @@ contract Etherex {
     }
     
     // determines price till volume of MIN_RESERVE_ASK_VOLUME is accumulated  
-    function determineReserveBidPrice() internal returns(bool) {
+    function determineReserveBidPrice() /*internal*/ returns(bool) {
         if (maxBid == 0) {
             bidReservePrices[currentPeriod] = 2**128-1;
             return false;
@@ -404,7 +458,7 @@ contract Etherex {
                 }
             }
 
-            if (cumBidReserveVol >= MIN_RESERVE_ASK_VOLUME) {
+            if (cumBidReserveVol >= MIN_RESERVE_BID_VOLUME) {
                 isFound = true;
             } else {
                 reserveBidPrice = orders[bidIterId].price;
@@ -415,7 +469,7 @@ contract Etherex {
     }
 
     // determines price till volume of MIN_RESERVE_BID_VOLUME is accumulated  
-    function determineReserveAskPrice() internal returns(bool) {
+    function determineReserveAskPrice() /*internal*/ returns(bool) {
         if (minAsk == 0) {
             askReservePrices[currentPeriod] = 2**128-1;
             return false;
@@ -442,80 +496,21 @@ contract Etherex {
                 }
             }
 
-            if (cumAskReserveVol >= MIN_RESERVE_BID_VOLUME) {
-              isFound = true;
-            } else {
+            if (cumAskReserveVol >= MIN_RESERVE_ASK_VOLUME) {
+              isFound = true;            
+              }  else {
               reserve_price = orders[ask_id_iter].price;
             }        
         }
-        askReservePrices[currentPeriod] = reserve_price;       
+        askReservePrices[currentPeriod] = reserve_price;  
+        return true;     
     }
 
     // ###################################################################################################################
     // ########################## testing area  ##########################################################################
     // ###################################################################################################################
 
-    // function test_settle_AskReserve(){
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchedAskReserveOrders[currentPeriod][_user] = 100;
-    //     settle(2,200,currentPeriod++);
-    // }          
-
-    // function test_settle_AskNormal(){
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     matchedAskOrders[currentPeriod][_user] = 100;
-    //     settle(2,100,currentPeriod++);          
-    // }  
-
-    // function test_settle_NoAskOrderEmitted(){
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     settle(2,100,currentPeriod++);          
-    // }  
-
-    // function test_settle_BidReserve(){
-    //     registerSmartMeter(address(123),address(123));
-    //     address _user = address(123);
-    //     currentPeriod = 1;
-    //     matchedBidReserveOrders[currentPeriod][_user] = 100;
-    //     settle(address(123),1,200,currentPeriod++);      
-    // }       
-
-    // function test_settle_BidNormal(){
-    //     registerSmartMeter(address(123),address(123));
-    //     address _user = address(123);
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     matchedBidOrders[currentPeriod][_user] = 100;
-    //     settle(address(123),1,200,currentPeriod++);          
-    // }  
-
-    // function test_settle_NoBidOrderEmitted(){
-    //     registerSmartMeter(address(123),address(123));
-    //     address _user = address(123);
-    //     identities[_user] = 1;
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     settle(address(123),1,100,currentPeriod++);          
-    // }  
-
-
-
+ 
     event InAskReserve(uint256 , uint256 );
     event InAskNormal(int256, uint256, uint256,int256);
     event InNoAskOrder(int256, uint256, uint256,int256);
@@ -538,25 +533,27 @@ contract Etherex {
     // ###################################################################################################################
 
    
-    // Settlement function called by smart meter
-    // _type=1 for Consumer and _type=2 for Producer
-    // for debug purposes not included 
-    function settle(address _user, int8 _type, uint256 _volume, uint256 _period) onlyProducers() onlyConsumers() {
-        if (!(_type == 1 || _type == 2)) {
-            throw;
-        }
-        if (_volume == 0) {
-            throw;
-        }
+    // todo (mg) function needs to be called by smart meters instead of users
+    // _type=2 for Producer and _type=1 for Consumer
+    function settle( int8 _type, uint256 _volume, uint256 _period) updateState() onlyUsers() {
+
+        address _user = msg.sender;
         // currentPeriod needs to be greater than the _period that should be settled 
-        if (!(currentPeriod >= _period)) {
-            throw;    
+        if (!(currentPeriod > _period) && autoState) {
+            return;    
         }
 
         // smart meter has already sent data for this particular user
         if (settleMapping[_period].alreadySettled[_user]) {
-            throw;
+            log("aleady settled");
+            return;
         }
+
+        // increment settle counter
+        settleMapping[_period].settleCounter += 1;
+
+
+
         // for debug purposes not defined here
         ordered = 0;
         offered = 0;
@@ -693,17 +690,16 @@ contract Etherex {
             }
         }
     
-        // increment settle counter
-        settleMapping[_period].settleCounter += 1;
-    
         // set user as settled for currentPeriod
         settleMapping[_period].alreadySettled[_user] = true;
-    
+        
+        log("settled");
         // todo: endSettle Funktion muss beim Eingang des letzten smart meter datensatzes automatisch ausgeführt werden
         if (settleMapping[_period].settleCounter == numUsers) {
             log("before endSettle");
             endSettle(_period);
         }
+        
     }
 
     // ###################################################################################################################
@@ -711,37 +707,21 @@ contract Etherex {
     // ###################################################################################################################
 
 
-    // function test_endSettle_lack() {
-    //     address consumer = address(123);
-    //     address reserveGuy = address(1234);
-    //     registerSmartMeter(consumer,consumer);
-    //     registerSmartMeter(address(1234),address(1234));
-    //     address _user = address(123);
-    //     currentPeriod = 1;
-    //     matchingPrices[currentPeriod] = 10;
-    //     bidReservePrices[currentPeriod] = 5;
-    //     askReservePrices[currentPeriod] = 20;
-    //     matchedBidOrders[currentPeriod][_user] = 100;
-    //     matchedAskReserveOrders[currentPeriod][reserveGuy]=200;
-    //     currentPeriod++;
-    //     settle(reserveGuy,2,100,1); 
-    //     settle(consumer,1,200,1);         
-    // }  
-
-
-    event ShowDiff(int256);
+    event ShowDiff(string msg, int256 value);
 
     // ###################################################################################################################
     // ########################## end of testing area ####################################################################
     // ###################################################################################################################
+
+    int256 shareOfEachUser; 
 
     function endSettle(uint256 _period) internal {
         int256 diff = int256(settleMapping[_period].excess) - int256(settleMapping[_period].lack);
         int256 smVolume = 0;
         address user;
         uint256 userId;
-    
-        ShowDiff(diff);
+        log("in in endSettle");
+        ShowDiff("difference",diff);
         
         if (diff >= 0) {
             for (uint256 i = 0; i<settleMapping[_period].bidSmData.length; i++) {   
@@ -762,14 +742,16 @@ contract Etherex {
         }
     
         smVolume = 0;
-    
-        if (diff <= 0) {
+        
+        if (diff < 0) {
             diff = -1 * diff;
-            for (uint256 j = 0;j<settleMapping[_period].askSmData.length;j++) {
-                    log("is in for loop with negative diff"); 
-                    smVolume = int256(settleMapping[_period].askSmData[i].smVolume);
+            ShowDiff("DIFF: ",diff);
+            for (uint256 j = 0;j<settleMapping[_period].askSmData.length;j++) {           
+                    smVolume = int256(settleMapping[_period].askSmData[j].smVolume);
+                    ShowDiff("smVolume in ASK: ",smVolume);
                     if (smVolume == 0) continue;
-                    user = settleMapping[_period].askSmData[i].user;
+                    log("is in for loop with negative diff"); 
+                    user = settleMapping[_period].askSmData[j].user;
                     userId = identities[user];
                     if (smVolume <= diff) {
                         colleteral[userId] += smVolume * askReservePrices[_period];
@@ -783,19 +765,16 @@ contract Etherex {
         }
     
         int256 moneyLeft = 0;
-        for (uint256 k=0; k<currentUserId-1; k++) {
-            if (userType[k] == 1 || userType[k] == 2) {
-                moneyLeft += colleteral[k];
-            }
+        for (uint256 k=0; k<numUsers; k++) {
+            moneyLeft += colleteral[k];   
         }
-        ShowDiff(moneyLeft);
-        int256 shareOfEachUser = moneyLeft / int256(numUsers);
+        ShowDiff("moneyLeft",moneyLeft);
+        shareOfEachUser = moneyLeft / int256(numUsers);
         shareOfEachUser = shareOfEachUser * -1;
-        ShowDiff(shareOfEachUser);
-        for (uint256 l=0; l<currentUserId-1; l++) {
-            if (userType[l] == 1 || userType[l] == 2) {
-                colleteral[l] += shareOfEachUser;
-            }
+        
+        ShowDiff("shareOfEachUser",shareOfEachUser);
+        for (uint256 l=0; l<numUsers; l++) {  
+            colleteral[l] += shareOfEachUser;     
         }
     }
 
@@ -804,6 +783,11 @@ contract Etherex {
     // ########################## READ-ONLY FUNCTIONS ####################################################################
     // ###################################################################################################################
  
+   
+    function getShare() constant returns(int256){
+        return(shareOfEachUser);
+    }
+
     function getOrderIdLastOrder() constant returns(uint256) {
         if (orderIdCounter == 1) {
             return 0;
@@ -841,6 +825,37 @@ contract Etherex {
         return (askQuotes, askAmounts);
     }
 
+    function isMatchedForBidReserve(address _user,uint256 _period) constant returns (bool){
+        if (matchedBidReserveOrders[_period][_user] != 0){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function isMatchedForAskReserve(address _user,uint256 _period) constant returns (bool){
+        if (matchedAskReserveOrders[_period][_user] != 0){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+    function getUserType(address _user) constant returns(uint256) {
+        return userType[identities[_user]];
+    }
+
+    function getCurrentPeriod() constant returns(uint256){
+        return currentPeriod;
+    }
+    function getBidReservePrice(uint256 _period) constant returns(int256){
+        return bidReservePrices[_period];
+    }
+    function getAskReservePrice(uint256 _period) constant returns(int256){
+        return askReservePrices[_period];   
+    }
+    
     function getOrderId(uint256 _orderId) constant returns(uint256) {
         return orders[_orderId].id;
     }
@@ -886,45 +901,49 @@ contract Etherex {
         return settleMapping[_period].sumConsumed;
     }
 
+
     function getSumProduced(uint256 _period) constant returns(uint256) {
         return settleMapping[_period].sumProduced;
     }
 
     function getSumOfColleteral() constant returns(int256) {
         int256 sum = 0;
-        for (uint256 i=0; i<currentUserId-1; i++) {
+        for (uint256 i=0; i<numUsers; i++) {
             sum += colleteral[i];
         }
         return sum;
     }
 
-    function getEnergyBalance(uint256 _period) constant returns(uint256) {
+    function getAllReserveBidEnergy(uint256 _period) constant returns(uint256){
         uint256 sumReserveConsumed = 0;
         for (uint256 i=0; i<settleMapping[_period].bidSmData.length; i++) {
             sumReserveConsumed += settleMapping[_period].bidSmData[i].smVolume;
         }
-        uint256 sumReserveProduced = 0;
+        return sumReserveConsumed;
+    }
+
+    function getNumberOfUser() constant returns(uint256){
+        return numUsers;
+    }
+
+    function getAllReserveAskEnergy(uint256 _period) constant returns(uint256){
+       uint256 sumReserveProduced = 0;
         for (uint256 j=0; j<settleMapping[_period].askSmData.length; j++) {
             sumReserveProduced += settleMapping[_period].askSmData[j].smVolume;
         }
-        return (settleMapping[_period].sumConsumed + sumReserveConsumed) 
-            - (settleMapping[_period].sumProduced + sumReserveProduced);
+        return sumReserveProduced;
     }
 
-    function reset() {
-        startBlock = block.number;
-        currState = 0;
-        minAsk = 0;
-        maxBid = 0;
-        // reset orders
-        delete orders;
-        Order memory blankOrder = Order(0, 0, 0, 0, 0);
-        orders.push(blankOrder);
-        orderIdCounter = 1;
-        // reset collateral
-        for (uint256 i=0; i<currentUserId-1; i++) {
-            colleteral[i] = 0;
-        }
+    function getReserveAskEnergy(uint256 _period, address _user) constant returns(uint256) {
+        return matchedAskReserveOrders[_period][_user];
+    }
+
+    function getReserveBidEnergy(uint256 _period, address _user) constant returns(uint256) {
+        return matchedBidReserveOrders[_period][_user];
+    }
+
+    function getEnergyBalance(uint256 _period) constant returns(uint256){
+        return settleMapping[_period].sumProduced-settleMapping[_period].sumConsumed;
     }
 
 }

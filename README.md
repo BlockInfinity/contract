@@ -32,6 +32,6 @@
 
 ## Testing
 
-- $ testrpc --accounts 1000 (Start Ethereum RPC client, e.g. 1000 accounts)
+- $ testrpc --accounts 100 --gasLimit 0x7A1200 (Start Ethereum RPC client, e.g. 1000 accounts)
 - $ cd ./dex
 - $ truffle test
