@@ -539,7 +539,7 @@ contract Etherex {
 
         address _user = msg.sender;
         // currentPeriod needs to be greater than the _period that should be settled 
-        if (!(currentPeriod > _period) && autoState) {
+        if (!(currentPeriod > (_period+1)) && autoState) {
             return;    
         }
 

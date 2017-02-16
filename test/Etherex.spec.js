@@ -404,7 +404,7 @@ contract('Etherex', function(accounts) {
         });
 
 
-        it('insert bids with price in descending order - should work', function() {
+        it('insert asks with price in descending order - should work', function() {
             assert(producers.length >= 10);
             return expect(co(function*() {
                 var orderIds = [];
